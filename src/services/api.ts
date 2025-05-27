@@ -1,6 +1,10 @@
 import OpenAI from 'openai';
 import { Product, LearningResource } from '../types/types';
 
+// WARNING: THIS IS A MAJOR SECURITY RISK. See notes above and in the response.
+// Your OpenAI API key is exposed to the browser.
+// This entire OpenAI client and the getEssentialProductTypes function
+// should be moved to a backend (e.g., a Supabase Function).
 const openai = new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true,
@@ -26,9 +30,10 @@ EXAMPLES:
     Ideal Response: ["Chess Set (Board and Pieces)", "Chess Clock", "Beginner's Chess Strategy Book"]
 
 OUTPUT REQUIREMENTS:
-1.  Return ONLY a JSON array of strings, where each string is a product type.
+1.  **Return ONLY a JSON response that is a single array of strings. The entire response body MUST be this JSON array.**
+    **For example: \`["Product Type 1", "Product Type 2", "Beginner's Guide to Topic"]\`**
 2.  The array should contain between 3 and 8 product types.
-3.  No explanations, introductory text, or any other text outside the JSON array. Just the array.
+3.  **No explanations, introductory text, variable assignments, comments, or any other text outside the JSON array structure itself. Just the array.**
 Example response format for "Tennis starter kit":
 ["Tennis Racket", "Tennis Balls", "Tennis Shoes", "Tennis Bag", "Beginner's Guide to Tennis"]`;
 
@@ -44,7 +49,7 @@ async function getEssentialProductTypes(activity: string): Promise<string[]> {
         },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.2,
+      temperature: 0.1,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -54,71 +59,91 @@ async function getEssentialProductTypes(activity: string): Promise<string[]> {
 
     console.log('Raw GPT response for product types:', content);
 
-    let productTypes: string[];
+    let parsedProductTypes: string[] = [];
     try {
       const parsedJson = JSON.parse(content);
-      
-      const flattenArray = (arr: any[]): string[] => {
-        return arr.reduce((flat: string[], item) => {
+
+      const processArray = (arr: any): string[] => {
+        if (!Array.isArray(arr)) return [];
+        return arr.reduce((flat: string[], item: any) => {
           if (Array.isArray(item)) {
-            return flat.concat(flattenArray(item));
+            return flat.concat(processArray(item));
           }
-          return typeof item === 'string' ? flat.concat(item) : flat;
+          if (typeof item === 'string' && item.trim() !== '') {
+            return flat.concat(item.trim());
+          }
+          return flat;
         }, []);
       };
 
       if (Array.isArray(parsedJson)) {
-        productTypes = flattenArray(parsedJson);
+        parsedProductTypes = processArray(parsedJson);
       } else if (typeof parsedJson === 'object' && parsedJson !== null) {
-        const possibleArrays = Object.values(parsedJson).filter(Array.isArray);
-        if (possibleArrays.length > 0) {
-          productTypes = flattenArray(possibleArrays[0] as any[]);
+        const arrayValues = Object.values(parsedJson).filter(val => Array.isArray(val));
+        if (arrayValues.length > 0 && Array.isArray(arrayValues[0])) {
+          parsedProductTypes = processArray(arrayValues[0] as any[]);
         } else {
-          productTypes = Object.values(parsedJson)
-            .filter(value => typeof value === 'string')
-            .map(String);
+          const keys = Object.keys(parsedJson);
+          const allValuesAreStringsOrSimilar = Object.values(parsedJson).every(
+            val => typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean'
+          );
+
+          if (keys.length > 0 && allValuesAreStringsOrSimilar) {
+            parsedProductTypes = keys.map(key => key.trim()).filter(key => key !== '');
+          } else {
+            throw new Error('GPT response is an object, but not in the expected {key: description} format and does not contain a primary array of product types.');
+          }
         }
       } else {
         throw new Error('GPT response for product types is not a valid JSON array or object.');
       }
-    } catch (parseError) {
-      console.error('Error parsing GPT response for product types:', parseError);
-      const arrayMatch = content.match(/\[\s*("[^"]*"(?:\s*,\s*"[^"]*")*)\s*\]/);
-      if (arrayMatch && arrayMatch[0]) {
-        try {
-          productTypes = JSON.parse(arrayMatch[0]);
-        } catch (e) {
-          throw new Error('Failed to parse product types from GPT response fallback.');
+    } catch (parseError: any) {
+      console.error('Error parsing GPT response for product types:', parseError.message, 'Raw content:', content);
+      if (typeof content === 'string') {
+        const arrayMatch = content.match(/\[\s*("[^"]*"(?:\s*,\s*"[^"]*")*)\s*\]/);
+        if (arrayMatch && arrayMatch[0]) {
+          try {
+            const regexParsed = JSON.parse(arrayMatch[0]);
+            if (Array.isArray(regexParsed) && regexParsed.every(pt => typeof pt === 'string')) {
+              parsedProductTypes = regexParsed.map((pt: string) => pt.trim()).filter((pt: string) => pt !== '');
+            } else {
+                 throw new Error('Regex fallback did not yield a clean array of strings.');
+            }
+          } catch (e: any) {
+            throw new Error(`Failed to parse product types from GPT response fallback regex. Original parse error: ${parseError.message}. Fallback error: ${e.message}`);
+          }
+        } else {
+          throw new Error(`Could not extract valid product types array from GPT response. Original parse error: ${parseError.message}. Content was: ${content}`);
         }
       } else {
-        throw new Error('Could not extract valid product types from GPT response.');
+         throw new Error(`Could not extract valid product types. Original parse error: ${parseError.message}. Content was not a string.`);
       }
     }
 
-    productTypes = productTypes
+    let finalProductTypes = parsedProductTypes
       .filter(pt => typeof pt === 'string' && pt.trim() !== '')
       .map(pt => pt.trim());
+    
+    finalProductTypes = [...new Set(finalProductTypes)];
 
-    if (productTypes.length === 0) {
-      throw new Error(`No valid product types found for "${activity}".`);
+    if (finalProductTypes.length === 0) {
+      throw new Error(`No valid product types found for "${activity}" after parsing. Raw response: ${content}`);
     }
 
-    if (productTypes.length < 2 || productTypes.length > 8) {
-      console.warn(`GPT returned ${productTypes.length} product types for "${activity}", which is outside the expected range.`);
+    if (finalProductTypes.length < 2 || finalProductTypes.length > 8) {
+      console.warn(`GPT returned ${finalProductTypes.length} product types for "${activity}", which is outside the expected range 2-8.`);
     }
 
-    return productTypes;
+    return finalProductTypes;
 
-  } catch (error) {
-    console.error(`Error getting essential product types for "${activity}":`, error);
-    if (error instanceof Error) {
-      if (error.message.includes('GPT did not return content')) {
-        throw new Error(`Sorry, I couldn't generate product types for "${activity}" right now. The AI service is unresponsive.`);
-      } else if (error.message.includes('parse')) {
-        throw new Error(`Sorry, I had trouble processing the product types for "${activity}". Please try a different search term.`);
-      }
+  } catch (error: any) {
+    console.error(`Error getting essential product types for "${activity}":`, error.message);
+    if (error.message.includes('GPT did not return content')) {
+      throw new Error(`Sorry, I couldn't generate product types for "${activity}" right now. The AI service might be unresponsive.`);
+    } else if (error.message.toLowerCase().includes('parse') || error.message.toLowerCase().includes('extract') || error.message.toLowerCase().includes('gpt response is an object')) {
+      throw new Error(`Sorry, I had trouble understanding the product types for "${activity}". The AI response was not in the expected format. Please try a different search term or try again later.`);
     }
-    throw new Error(`Failed to identify essential product types for "${activity}". Please try a different search term or check the AI service.`);
+    throw new Error(`Failed to identify essential product types for "${activity}". Please try a different search term or check the AI service. Original error: ${error.message}`);
   }
 }
 
@@ -128,13 +153,15 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
     return [];
   }
   try {
+    // IMPORTANT: In a production system, getEssentialProductTypes should call your OWN backend
+    // which then calls OpenAI, rather than calling OpenAI from the client.
     const productTypes = await getEssentialProductTypes(activity);
 
     if (!productTypes || productTypes.length === 0) {
       throw new Error(`No essential product types could be determined for "${activity}". Please try a more specific or different term.`);
     }
 
-    const allTieredProducts: Product[] = [];
+    const allProductsAccumulated: Product[] = [];
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -160,7 +187,9 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
           console.warn(`Error fetching for ${productType}: ${errorMessage}. Full response: ${JSON.stringify(errorData)}`);
           return [];
         }
-        return response.json() as Promise<Product[]>;
+        const products = await response.json() as Product[]; // Assuming Product type is defined elsewhere
+        // Ensure the response is an array, even if it's empty
+        return Array.isArray(products) ? products : [];
       }).catch(networkError => {
         console.error(`Network error fetching products for type "${productType}":`, networkError);
         return [];
@@ -170,31 +199,55 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
     const results = await Promise.all(productPromises);
     results.forEach(productsForType => {
       if (Array.isArray(productsForType)) {
-        allTieredProducts.push(...productsForType);
+        allProductsAccumulated.push(...productsForType);
       }
     });
 
-    if (allTieredProducts.length === 0) {
-      throw new Error(`No products found for the starter kit: "${activity}". Try a broader or different search term.`);
+    if (allProductsAccumulated.length === 0 && productTypes.length > 0) {
+       throw new Error(`No products found for the starter kit: "${activity}", despite identifying product types. Try a broader or different search term, or check if the backend search is working.`);
+    } else if (allProductsAccumulated.length === 0) {
+         throw new Error(`No products found for the starter kit: "${activity}" because no product types were identified or no products matched. Try a broader or different search term.`);
     }
     
-    return allTieredProducts.map(p => ({
+    const uniqueProductsMap = new Map<string, Product>();
+    allProductsAccumulated.forEach(product => {
+      // The `Product` type should have a `link` property that is unique for React keys.
+      // This comes from your Supabase function's `formatProduct` which creates `link`.
+      if (product && product.link && !uniqueProductsMap.has(product.link)) {
+        uniqueProductsMap.set(product.link, product);
+      } else if (product && product.link && uniqueProductsMap.has(product.link)) {
+        // Optional: log if a duplicate link was found and skipped
+        // console.log(`Duplicate product link found and skipped: ${product.link}`);
+      } else if (product && !product.link) {
+        // Optional: log products missing a link if a link is expected for all products
+        // console.warn('Product found without a link:', product.name);
+        // Decide how to handle products without a link; for now, they won't be added if link is the key
+      }
+    });
+
+    const uniqueTieredProducts = Array.from(uniqueProductsMap.values());
+
+    if (uniqueTieredProducts.length === 0 && allProductsAccumulated.length > 0) {
+        console.warn(`All fetched products for "${activity}" were filtered out during de-duplication or lacked keyable URLs. Original count: ${allProductsAccumulated.length}`);
+        throw new Error(`No usable products found for the starter kit: "${activity}" after processing. Please check the search terms or data sources.`);
+    }
+     if (uniqueTieredProducts.length === 0 && productTypes.length > 0) {
+        throw new Error(`No products found for the starter kit: "${activity}". Try a broader or different search term.`);
+    }
+    
+    return uniqueTieredProducts.map(p => ({
       ...p,
       tier: p.tier || 'essential' 
     }));
 
-  } catch (error) {
-    console.error(`Error in searchAmazonProducts for activity "${activity}":`, error);
-    if (error instanceof Error) {
-      if (error.message.includes("No essential product types could be determined") ||
-          error.message.includes("couldn't generate product types") ||
-          error.message.includes("had trouble processing the product types")) {
-        throw error;
-      }
-      throw new Error(`Unable to build the starter kit for "${activity}". ${error.message}`);
-    } else {
-      throw new Error(`An unknown error occurred while building the starter kit for "${activity}".`);
+  } catch (error: any) {
+    console.error(`Error in searchAmazonProducts for activity "${activity}":`, error.message, error.stack);
+    if (error.message.includes("No essential product types could be determined") ||
+        error.message.includes("couldn't generate product types") ||
+        error.message.includes("had trouble understanding the product types")) {
+      throw error;
     }
+    throw new Error(`Unable to build the starter kit for "${activity}". ${error.message.startsWith('Unable to build') ? '' : 'Details: '}${error.message}`);
   }
 }
 
@@ -233,21 +286,17 @@ export async function searchLearningResources(activity: string): Promise<Learnin
     }
     return resources;
 
-  } catch (error) {
-    console.error(`Error fetching learning resources for activity "${activity}":`, error);
-    if (error instanceof Error) {
-      throw new Error(`Unable to fetch learning resources for "${activity}". ${error.message}`);
-    } else {
-      throw new Error(`An unknown error occurred while fetching learning resources for "${activity}".`);
-    }
+  } catch (error: any) {
+    console.error(`Error fetching learning resources for activity "${activity}":`, error.message);
+    throw new Error(`Unable to fetch learning resources for "${activity}". ${error.message.startsWith('Unable to fetch') ? '' : 'Details: '}${error.message}`);
   }
 }
 
 export function openProductLinks(links: string[]) {
-  if (!links.length) return;
+  if (!links || !links.length) return;
   links.forEach((link, index) => {
     setTimeout(() => {
-      if (link?.startsWith('https://www.amazon.com/')) {
+      if (typeof link === 'string' && link.startsWith('https://www.amazon.com/')) {
         window.open(link, '_blank');
       }
     }, index * 100);

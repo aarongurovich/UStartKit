@@ -1,6 +1,6 @@
 export interface Product {
   name: string;
-  description: string;
+  reasonForInclusion: string;
   link: string;
   image: string;
   price: string;
@@ -15,7 +15,7 @@ export interface LearningResource {
   type: 'Book' | 'Online Course' | 'YouTube' | 'Community' | 'Website/Blog' | 'Other';
   description: string;
   source?: string;
-  image?: string; // Ensure this line is present
+  image: string;
 }
 
 export interface ProductContextType {

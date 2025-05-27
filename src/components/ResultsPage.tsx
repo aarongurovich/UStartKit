@@ -1,7 +1,7 @@
 import React, { useContext, useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Shield, Sparkles, Crown, BookOpen, Package, ExternalLink, AlertCircle, Image as ImageIcon, Youtube, Book } from 'lucide-react';
-import ProductCard from './ProductCard';
+import ProductCard from './ProductCard'; // Not used directly here, but mentioned for layout style
 import { ProductContext } from '../context/ProductContext';
 import Header from './Header';
 import { searchLearningResources } from '../services/api';
@@ -90,20 +90,25 @@ const ResultsPage: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
-      className="group bg-gray-800/60 hover:bg-gray-700/70 rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-700/50 flex flex-col sm:flex-row"
+      // Changed to always be flex-col for a stacked layout
+      className="group bg-gray-800/60 hover:bg-gray-700/70 rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-700/50 flex flex-col"
     >
+      {/* Image Section: Always on top */}
       {resource.image ? (
         <img 
           src={resource.image} 
           alt={resource.title} 
-          className="w-full h-40 sm:w-48 sm:h-auto object-cover "
+          // Consistent image styling: full width of card, fixed height, object-cover for aspect ratio
+          className="w-full h-48 object-cover" 
         />
       ) : (
-        <div className="w-full h-40 sm:w-48 sm:h-full bg-gray-700/50 flex items-center justify-center flex-shrink-0">
+        // Fallback if no image is available
+        <div className="w-full h-48 bg-gray-700/50 flex items-center justify-center">
           <ImageIcon className="w-16 h-16 text-gray-500" />
         </div>
       )}
-      <div className="p-5 flex flex-col justify-between">
+      {/* Text Content Section: Always below the image */}
+      <div className="p-5 flex flex-col justify-between flex-grow"> {/* flex-grow allows this part to take remaining space if card heights are uniform in a grid */}
         <div>
           <div className="flex items-center mb-2">
             {renderResourceTypeIcon(resource.type)}

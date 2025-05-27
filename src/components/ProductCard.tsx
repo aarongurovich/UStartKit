@@ -17,15 +17,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
     premium: Sparkles,
     luxury: Crown
   }[product.tier];
-  
+
   const tierColors = {
     essential: 'text-blue-400',
     premium: 'text-purple-400',
     luxury: 'text-yellow-400'
   }[product.tier];
-  
+
   return (
-    <motion.a 
+    <motion.a
       href={product.link}
       target="_blank"
       rel="noopener noreferrer sponsored"
@@ -36,16 +36,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Gradient overlay on hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 to-purple-500/0 group-hover:from-indigo-500/10 group-hover:to-purple-500/10 transition-all duration-300" />
-      
-      {/* View on Amazon badge */}
+
       <div className={`absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-500/80 backdrop-blur-sm text-white text-xs font-medium transform transition-all duration-300 ${isHovered ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}>
         <span>View on Amazon</span>
         <ExternalLink className="h-3 w-3" />
       </div>
 
-      {/* Tier Badge */}
       <div className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gray-900/80 backdrop-blur-sm text-xs font-medium">
         <TierIcon className={`h-3 w-3 ${tierColors}`} />
         <span className={`capitalize ${tierColors}`}>{product.tier}</span>
@@ -57,7 +54,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
             {product.name}
           </h3>
         </div>
-        
+
         <div className="flex items-center mb-3 text-sm">
           <div className="flex items-center text-yellow-500">
             <Star className="h-4 w-4 fill-current" />
@@ -66,7 +63,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
           <span className="mx-2 text-gray-600">·</span>
           <span className="text-gray-400">{product.reviews} reviews</span>
           <span className="mx-2 text-gray-600">·</span>
-          <motion.span 
+          <motion.span
             className="font-semibold text-white"
             animate={{ scale: isHovered ? 1.05 : 1 }}
             transition={{ duration: 0.2 }}
@@ -74,11 +71,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
             {product.price}
           </motion.span>
         </div>
-        
+
         <div className="relative bg-gray-800/50 rounded-lg mb-3 overflow-hidden group-hover:ring-2 ring-indigo-500/30 transition-all duration-300" style={{ paddingBottom: '75%' }}>
           <div className="absolute inset-0 flex items-center justify-center p-2">
-            <img 
-              src={product.image} 
+            <img
+              src={product.image}
               alt={product.name}
               className={`w-full h-full object-contain transform group-hover:scale-110 transition-all duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
               onLoad={() => setImageLoaded(true)}
@@ -86,9 +83,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
             />
           </div>
         </div>
-        
-        <p className="text-sm text-gray-300 mb-4 line-clamp-2 group-hover:text-gray-200 transition-colors">
-          {product.description}
+
+        <p className="text-sm text-gray-300 mb-4 line-clamp-3 group-hover:text-gray-200 transition-colors">
+          {product.reasonForInclusion}
         </p>
       </div>
     </motion.a>

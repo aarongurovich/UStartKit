@@ -3,26 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ProductContext } from '../context/ProductContext';
 
 const examplePrompts = [
-  "Travel starter kit for Europe",
-  "Dorm room essentials for college",
-  "Beginner cooking set for new chefs",
-  "Podcast starter pack for beginners",
-  "Home office setup essentials",
-  "Hiking gear for beginners",
-  "Photography starter kit",
-  "Plant parent starter pack",
-  "Gaming setup for streamers",
-  "Art supplies for beginners",
-  "Meditation and mindfulness kit",
-  "Home barista coffee setup",
-  "Camping essentials for beginners",
-  "Gardening starter kit",
-  "Yoga beginner equipment",
-  "Baking essentials kit",
-  "DIY tool set for beginners",
-  "Music production starter pack",
-  "Rock climbing gear basics",
-  "Sewing starter kit"
+  "International travel essentials",
+  "College dorm room setup",
+  "Beginner's kitchen essentials",
+  "Equipment for starting a podcast",
+  "Work-from-home office setup",
+  "Essential gear for beginner hikers",
+  "Getting started with digital photography",
+  "Supplies for new houseplant enthusiasts",
+  "Building an aspiring streamer's setup",
+  "Art supplies for beginner painters and drawers",
+  "Essentials for starting a meditation practice",
+  "Creating a home coffee brewing station",
+  "Gear for a first-time camper",
+  "Supplies for starting a home vegetable garden",
+  "What a beginner needs for yoga",
+  "Essential tools for amateur bakers",
+  "Tools for basic DIY home repairs",
+  "Setting up a home music recording studio",
+  "Gear for learning rock climbing",
+  "Supplies for starting sewing and crafts"
 ];
 
 const PromptCarousel: React.FC = () => {
