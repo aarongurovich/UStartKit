@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_WINDOW = 60000;
 const MAX_REQUESTS_PER_WINDOW = 30;
 const requestLog = new Map<string, number[]>();
 
@@ -15,9 +15,8 @@ interface AmazonProduct {
   product_photo: string;
   product_price: string;
   product_url: string;
-  product_star_rating: string; // Can be like "4.5"
-  product_num_ratings: string; // Can be like "1,234"
-  // Add other fields you might get from the API
+  product_star_rating: string;
+  product_num_ratings: string;
 }
 
 interface FormattedProduct {
@@ -64,8 +63,6 @@ async function fetchAmazonApi(query: string, page: number = 1): Promise<AmazonPr
   if (!rapidApiKey) {
     throw new Error('RAPIDAPI_KEY is not configured in environment variables.');
   }
-  // The user provided the API key directly in the prompt, using that one.
-  // Ensure this is stored as an environment variable in Supabase.
   const apiKey = Deno.env.get('USER_PROVIDED_RAPIDAPI_KEY') || rapidApiKey;
 
 
@@ -118,15 +115,13 @@ function formatProduct(apiProduct: AmazonProduct, tier: 'essential' | 'premium' 
     'toy', 'game', 'play set',
     'book', 'guide', 'manual', 'instruction',
     'sticker', 'decoration', 'costume',
-    // 'bundle', 'combo pack', 'value pack' // Decided to keep bundles as they can be part of a tier
   ];
 
   if (excludeKeywords.some(keyword => title.includes(keyword))) {
     return null;
   }
 
-  // Basic validation
-  if (rating < 3.5 && reviews < 10) return null; // More lenient for tier separation
+  if (rating < 3.5 && reviews < 10) return null;
 
   return {
     name: apiProduct.product_title,
@@ -142,10 +137,8 @@ function formatProduct(apiProduct: AmazonProduct, tier: 'essential' | 'premium' 
   };
 }
 
-
-// Helper to parse price string to a number (e.g., "$19.99" -> 19.99)
 function parsePrice(priceStr: string): number {
-    if (!priceStr) return Infinity; // Or handle as an error
+    if (!priceStr) return Infinity;
     const numStr = priceStr.replace(/[^0-9.]/g, '');
     const price = parseFloat(numStr);
     return isNaN(price) ? Infinity : price;
@@ -171,43 +164,35 @@ serve(async (req: Request) => {
     }
 
     const tieredProducts: FormattedProduct[] = [];
-    const fullQuery = `${baseKeywords} ${productType}`; // e.g., "Beginner cooking set Chef's Knife"
+    const fullQuery = `${baseKeywords} ${productType}`;
 
-    // Fetch a pool of products, then categorize
-    // Fetch 2 pages to get a decent selection, around 40-50 products if API returns 20-25 per page.
     let candidateProducts: AmazonProduct[] = [];
     try {
         const page1Products = await fetchAmazonApi(fullQuery, 1);
         candidateProducts.push(...page1Products);
-        if (page1Products.length > 0) { // Only fetch page 2 if page 1 had results
+        if (page1Products.length > 0) {
              const page2Products = await fetchAmazonApi(fullQuery, 2);
              candidateProducts.push(...page2Products);
         }
     } catch (e) {
         console.error(`Failed to fetch products from Amazon for query: ${fullQuery}`, e.message);
-         // Return empty if Amazon fetch fails, so other product types can still be processed
         return new Response(JSON.stringify([]), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
 
-
-    // Filter out clearly unsuitable products first
     const suitableRawProducts = candidateProducts.filter(p => {
-        const formatted = formatProduct(p, 'essential'); // Tier is temporary here
-        return formatted !== null && p.product_price; // Ensure price exists for sorting
-    }).sort((a, b) => parsePrice(a.product_price) - parsePrice(b.product_price)); // Sort by price ascending
+        const formatted = formatProduct(p, 'essential');
+        return formatted !== null && p.product_price;
+    }).sort((a, b) => parsePrice(a.product_price) - parsePrice(b.product_price));
 
     if (suitableRawProducts.length === 0) {
       console.warn(`No suitable raw products found for: ${fullQuery}`);
       return new Response(JSON.stringify([]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    
-    // Attempt to pick one for each tier
-    // This is a simplified tiering logic. Real-world might need more complex analysis or separate API calls with price filters.
+
     const usedProductUrls = new Set<string>();
 
-    // Essential: Cheapest, decent rating
     let essentialProduct: AmazonProduct | undefined = suitableRawProducts.find(p => (parseFloat(p.product_star_rating) || 0) >= 3.8);
     if (essentialProduct) {
         const formatted = formatProduct(essentialProduct, 'essential');
@@ -217,7 +202,6 @@ serve(async (req: Request) => {
         }
     }
 
-    // Luxury: Most expensive among highly-rated, or from the top price bracket
     let luxuryProduct: AmazonProduct | undefined;
     for (let i = suitableRawProducts.length - 1; i >= 0; i--) {
         const p = suitableRawProducts[i];
@@ -226,7 +210,7 @@ serve(async (req: Request) => {
             break;
         }
     }
-     if (!luxuryProduct && suitableRawProducts.length > 0) { // Fallback to just the most expensive if no high-rated found
+     if (!luxuryProduct && suitableRawProducts.length > 0) {
         luxuryProduct = suitableRawProducts[suitableRawProducts.length -1];
     }
 
@@ -237,20 +221,17 @@ serve(async (req: Request) => {
             usedProductUrls.add(formatted.link);
         }
     }
-    
-    // Premium: Mid-price range, good rating
-    // Find something between essential and luxury, or from the middle of the price distribution
+
     let premiumProduct: AmazonProduct | undefined;
     const midIndex = Math.floor(suitableRawProducts.length / 2);
     for (let i = 0; i < suitableRawProducts.length; i++) {
-        // Try to find one around the middle that's not already picked
         const p = suitableRawProducts[midIndex + i] || suitableRawProducts[midIndex - i];
         if (p && (parseFloat(p.product_star_rating) || 0) >= 4.0 && !usedProductUrls.has(addAffiliateTag(p.product_url))) {
             premiumProduct = p;
             break;
         }
     }
-     if (!premiumProduct && suitableRawProducts.length > 0) { // Fallback if specific criteria not met
+     if (!premiumProduct && suitableRawProducts.length > 0) {
         premiumProduct = suitableRawProducts.find(p => !usedProductUrls.has(addAffiliateTag(p.product_url)));
     }
 
@@ -265,14 +246,11 @@ serve(async (req: Request) => {
 
 
     if (tieredProducts.length === 0 && suitableRawProducts.length > 0) {
-        // If no tiered products were selected but we have candidates,
-        // add the best-rated overall as 'essential' to ensure something is returned.
         const bestOverall = suitableRawProducts.sort((a,b) => (parseFloat(b.product_star_rating) || 0) - (parseFloat(a.product_star_rating) || 0))[0];
         const formatted = formatProduct(bestOverall, 'essential');
         if (formatted) tieredProducts.push(formatted);
     }
      if (tieredProducts.length < 3 && tieredProducts.length > 0 && suitableRawProducts.length > tieredProducts.length) {
-        // Try to fill remaining tiers if we have products and less than 3 tiers populated
         const availableTiers: Array<'essential' | 'premium' | 'luxury'> = ['essential', 'premium', 'luxury'];
         const populatedTiers = new Set(tieredProducts.map(p => p.tier));
 
