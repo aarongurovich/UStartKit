@@ -1,10 +1,15 @@
-import React, { useContext, useState, useCallback } from 'react';
+import React, { useContext, useState, useCallback, useEffect } from 'react'; // Added useEffect
 import { Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { searchAmazonProducts } from '../services/api';
 import { ProductContext } from '../context/ProductContext';
 
 const COOLDOWN_PERIOD = 2000; // 2 seconds cooldown between searches
+
+// Define placeholder texts
+const DESKTOP_PLACEHOLDER = "What starter kit are you looking for?";
+const MOBILE_PLACEHOLDER = "Search starter kits..."; // Shorter version for mobile
+const MOBILE_BREAKPOINT = 768; // Tailwind's `md` breakpoint
 
 const SearchForm: React.FC = () => {
   const { 
@@ -15,6 +20,27 @@ const SearchForm: React.FC = () => {
     setError 
   } = useContext(ProductContext);
   const [lastSearchTime, setLastSearchTime] = useState<number>(0);
+  
+  // State for the dynamic placeholder
+  const [currentPlaceholder, setCurrentPlaceholder] = useState(DESKTOP_PLACEHOLDER);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < MOBILE_BREAKPOINT) {
+        setCurrentPlaceholder(MOBILE_PLACEHOLDER);
+      } else {
+        setCurrentPlaceholder(DESKTOP_PLACEHOLDER);
+      }
+    };
+
+    // Set initial placeholder based on screen size
+    handleResize(); 
+
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup listener on component unmount
+    return () => window.removeEventListener('resize', handleResize);
+  }, []); // Empty dependency array ensures this runs only on mount and unmount
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +72,6 @@ const SearchForm: React.FC = () => {
     } catch (error) {
       let errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       
-      // Handle specific error cases
       if (errorMessage.includes('429')) {
         errorMessage = 'We\'re experiencing high traffic. Please try again in a few moments.';
       } else if (errorMessage.includes('Insufficient products')) {
@@ -74,7 +99,7 @@ const SearchForm: React.FC = () => {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="What starter kit are you looking for?"
+          placeholder={currentPlaceholder} // Use the dynamic placeholder state
           className="w-full py-7 px-8 pr-16 text-xl bg-gray-900/50 text-white placeholder-gray-400 border border-gray-700/50 rounded-2xl shadow-sm backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all hover:shadow-lg hover:shadow-indigo-500/10"
           required
         />

@@ -1,151 +1,57 @@
-import OpenAI from 'openai';
+// No longer need OpenAI client here
+// import OpenAI from 'openai';
 import { Product, LearningResource } from '../types/types';
 
-// WARNING: THIS IS A MAJOR SECURITY RISK. See notes above and in the response.
-// Your OpenAI API key is exposed to the browser.
-// This entire OpenAI client and the getEssentialProductTypes function
-// should be moved to a backend (e.g., a Supabase Function).
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+// The OpenAI client and SYSTEM_PROMPT_FOR_ESSENTIAL_PRODUCT_TYPES have been moved to the Supabase function.
 
-const SYSTEM_PROMPT_FOR_ESSENTIAL_PRODUCT_TYPES = `You are an expert in curating starter kits for beginners.
-Given a user's request for a starter kit (e.g., "Beginner cooking set", "Travel starter kit for Europe", "Chess starter kit"), your task is to identify 3 to 8 essential and truly distinct *types* of products that would form the core of such a kit. One of these items MUST be a beginner-level instructional book or guide relevant to the activity unless the activity is so general (e.g. "Dorm Room Essentials") that a single book is not appropriate.
-
-CRITICAL RULES FOR DISTINCT PRODUCT TYPES:
-1.  **Focus on Functionality**: Each product type should represent a unique core function or purpose within the activity.
-2.  **General Categories**: Product types should be general categories (e.g., "Chef's Knife", "Cutting Board") not specific brands, models, or highly granular variations unless those variations serve a fundamentally different purpose for a beginner.
-3.  **Combine Core Components**: For items typically sold or used as a single functional unit (like a chess board and pieces), list the combined unit as a single product type (e.g., "Chess Set"). Do NOT list individual components (like "Chess Board" and "Chess Pieces" separately) if a combined set is standard for a beginner. Only list components separately if they are common, distinct purchases for a beginner for different primary functions (e.g., a specialized travel board vs. a main set).
-4.  **Avoid Redundancy**: Ensure no two product types you list serve an almost identical primary purpose for a beginner. For example, don't list "Frying Pan" and "Skillet" if they mean the same thing for a basic kit.
-5.  **Beginner Focus**: The kit is for someone starting out. Prioritize the absolute essentials.
-6.  **Include a Book/Guide**: Unless highly impractical for the topic, one product type should be a "Beginner's Guide to [Activity]" or similar introductory book.
-
-EXAMPLES:
--   User: "Beginner Photography Starter Kit"
-    Ideal Response: ["DSLR Camera or Mirrorless Camera with Kit Lens", "Memory Card", "Camera Bag", "Tripod", "Lens Cleaning Kit", "Beginner's Guide to Digital Photography"]
--   User: "Home Office Setup Essentials"
-    Ideal Response: ["Desk", "Ergonomic Office Chair", "External Monitor", "Keyboard", "Mouse", "Webcam", "Desk Organizer", "Guide to Home Office Ergonomics and Productivity"]
--   User: "Chess Starter Kit"
-    Ideal Response: ["Chess Set (Board and Pieces)", "Chess Clock", "Beginner's Chess Strategy Book"]
-
-OUTPUT REQUIREMENTS:
-1.  **Return ONLY a JSON response that is a single array of strings. The entire response body MUST be this JSON array.**
-    **For example: \`["Product Type 1", "Product Type 2", "Beginner's Guide to Topic"]\`**
-2.  The array should contain between 3 and 8 product types.
-3.  **No explanations, introductory text, variable assignments, comments, or any other text outside the JSON array structure itself. Just the array.**
-Example response format for "Tennis starter kit":
-["Tennis Racket", "Tennis Balls", "Tennis Shoes", "Tennis Bag", "Beginner's Guide to Tennis"]`;
-
+// This function now calls your new Supabase Edge Function
 async function getEssentialProductTypes(activity: string): Promise<string[]> {
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT_FOR_ESSENTIAL_PRODUCT_TYPES },
-        {
-          role: "user",
-          content: `Identify essential product types for a "${activity}" starter kit. Follow all output requirements precisely.`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase URL or Anon Key is not configured in environment variables.");
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/product-types`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`
+      },
+      body: JSON.stringify({ activity: activity })
     });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('GPT did not return content for product types.');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `API call failed with status ${response.status}` }));
+      console.error("Error fetching product types, response not OK:", response.status, errorData);
+      throw new Error(errorData.error || `Failed to fetch product types: ${response.statusText}`);
     }
 
-    console.log('Raw GPT response for product types:', content);
-
-    let parsedProductTypes: string[] = [];
-    try {
-      const parsedJson = JSON.parse(content);
-
-      const processArray = (arr: any): string[] => {
-        if (!Array.isArray(arr)) return [];
-        return arr.reduce((flat: string[], item: any) => {
-          if (Array.isArray(item)) {
-            return flat.concat(processArray(item));
-          }
-          if (typeof item === 'string' && item.trim() !== '') {
-            return flat.concat(item.trim());
-          }
-          return flat;
-        }, []);
-      };
-
-      if (Array.isArray(parsedJson)) {
-        parsedProductTypes = processArray(parsedJson);
-      } else if (typeof parsedJson === 'object' && parsedJson !== null) {
-        const arrayValues = Object.values(parsedJson).filter(val => Array.isArray(val));
-        if (arrayValues.length > 0 && Array.isArray(arrayValues[0])) {
-          parsedProductTypes = processArray(arrayValues[0] as any[]);
-        } else {
-          const keys = Object.keys(parsedJson);
-          const allValuesAreStringsOrSimilar = Object.values(parsedJson).every(
-            val => typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean'
-          );
-
-          if (keys.length > 0 && allValuesAreStringsOrSimilar) {
-            parsedProductTypes = keys.map(key => key.trim()).filter(key => key !== '');
-          } else {
-            throw new Error('GPT response is an object, but not in the expected {key: description} format and does not contain a primary array of product types.');
-          }
-        }
-      } else {
-        throw new Error('GPT response for product types is not a valid JSON array or object.');
-      }
-    } catch (parseError: any) {
-      console.error('Error parsing GPT response for product types:', parseError.message, 'Raw content:', content);
-      if (typeof content === 'string') {
-        const arrayMatch = content.match(/\[\s*("[^"]*"(?:\s*,\s*"[^"]*")*)\s*\]/);
-        if (arrayMatch && arrayMatch[0]) {
-          try {
-            const regexParsed = JSON.parse(arrayMatch[0]);
-            if (Array.isArray(regexParsed) && regexParsed.every(pt => typeof pt === 'string')) {
-              parsedProductTypes = regexParsed.map((pt: string) => pt.trim()).filter((pt: string) => pt !== '');
-            } else {
-                 throw new Error('Regex fallback did not yield a clean array of strings.');
-            }
-          } catch (e: any) {
-            throw new Error(`Failed to parse product types from GPT response fallback regex. Original parse error: ${parseError.message}. Fallback error: ${e.message}`);
-          }
-        } else {
-          throw new Error(`Could not extract valid product types array from GPT response. Original parse error: ${parseError.message}. Content was: ${content}`);
-        }
-      } else {
-         throw new Error(`Could not extract valid product types. Original parse error: ${parseError.message}. Content was not a string.`);
-      }
+    const productTypes = await response.json();
+    if (!Array.isArray(productTypes) || !productTypes.every(pt => typeof pt === 'string')) {
+        console.error("Product types response is not an array of strings:", productTypes);
+        throw new Error("Invalid format for product types received from API.");
     }
-
-    let finalProductTypes = parsedProductTypes
-      .filter(pt => typeof pt === 'string' && pt.trim() !== '')
-      .map(pt => pt.trim());
     
-    finalProductTypes = [...new Set(finalProductTypes)];
-
-    if (finalProductTypes.length === 0) {
-      throw new Error(`No valid product types found for "${activity}" after parsing. Raw response: ${content}`);
+    // Basic validation for number of product types, can be adjusted or made more robust
+    if (productTypes.length < 2 || productTypes.length > 8) {
+      console.warn(`API returned ${productTypes.length} product types for "${activity}", which is outside the expected range 2-8. Using them anyway.`);
     }
 
-    if (finalProductTypes.length < 2 || finalProductTypes.length > 8) {
-      console.warn(`GPT returned ${finalProductTypes.length} product types for "${activity}", which is outside the expected range 2-8.`);
-    }
-
-    return finalProductTypes;
+    return productTypes.map(pt => pt.trim()).filter(pt => pt !== '');
 
   } catch (error: any) {
-    console.error(`Error getting essential product types for "${activity}":`, error.message);
-    if (error.message.includes('GPT did not return content')) {
-      throw new Error(`Sorry, I couldn't generate product types for "${activity}" right now. The AI service might be unresponsive.`);
-    } else if (error.message.toLowerCase().includes('parse') || error.message.toLowerCase().includes('extract') || error.message.toLowerCase().includes('gpt response is an object')) {
-      throw new Error(`Sorry, I had trouble understanding the product types for "${activity}". The AI response was not in the expected format. Please try a different search term or try again later.`);
+    console.error(`Error getting essential product types for "${activity}" from Supabase function:`, error.message);
+    // Preserve some of the specific error messages if they are still relevant from the function's perspective
+    if (error.message.includes("AI service might be unresponsive") || error.message.includes("AI response was not in the expected format")) {
+        throw new Error(error.message);
     }
     throw new Error(`Failed to identify essential product types for "${activity}". Please try a different search term or check the AI service. Original error: ${error.message}`);
   }
 }
+
 
 export async function searchAmazonProducts(activity: string): Promise<Product[]> {
   if (!activity || activity.trim() === "") {
@@ -153,9 +59,8 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
     return [];
   }
   try {
-    // IMPORTANT: In a production system, getEssentialProductTypes should call your OWN backend
-    // which then calls OpenAI, rather than calling OpenAI from the client.
-    const productTypes = await getEssentialProductTypes(activity);
+    // Now calls the Supabase function `product-types` via the updated `getEssentialProductTypes`
+    const productTypes = await getEssentialProductTypes(activity); // This now calls your Supabase function
 
     if (!productTypes || productTypes.length === 0) {
       throw new Error(`No essential product types could be determined for "${activity}". Please try a more specific or different term.`);
@@ -170,7 +75,7 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
     }
 
     const productPromises = productTypes.map(productType => {
-      return fetch(`${supabaseUrl}/functions/v1/amazon-search`, {
+      return fetch(`${supabaseUrl}/functions/v1/amazon-search`, { // This remains the same
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,8 +92,7 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
           console.warn(`Error fetching for ${productType}: ${errorMessage}. Full response: ${JSON.stringify(errorData)}`);
           return [];
         }
-        const products = await response.json() as Product[]; // Assuming Product type is defined elsewhere
-        // Ensure the response is an array, even if it's empty
+        const products = await response.json() as Product[];
         return Array.isArray(products) ? products : [];
       }).catch(networkError => {
         console.error(`Network error fetching products for type "${productType}":`, networkError);
@@ -211,17 +115,8 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
     
     const uniqueProductsMap = new Map<string, Product>();
     allProductsAccumulated.forEach(product => {
-      // The `Product` type should have a `link` property that is unique for React keys.
-      // This comes from your Supabase function's `formatProduct` which creates `link`.
       if (product && product.link && !uniqueProductsMap.has(product.link)) {
         uniqueProductsMap.set(product.link, product);
-      } else if (product && product.link && uniqueProductsMap.has(product.link)) {
-        // Optional: log if a duplicate link was found and skipped
-        // console.log(`Duplicate product link found and skipped: ${product.link}`);
-      } else if (product && !product.link) {
-        // Optional: log products missing a link if a link is expected for all products
-        // console.warn('Product found without a link:', product.name);
-        // Decide how to handle products without a link; for now, they won't be added if link is the key
       }
     });
 
@@ -243,14 +138,18 @@ export async function searchAmazonProducts(activity: string): Promise<Product[]>
   } catch (error: any) {
     console.error(`Error in searchAmazonProducts for activity "${activity}":`, error.message, error.stack);
     if (error.message.includes("No essential product types could be determined") ||
-        error.message.includes("couldn't generate product types") ||
-        error.message.includes("had trouble understanding the product types")) {
-      throw error;
+        error.message.includes("couldn't generate product types") || // Kept for general AI issues
+        error.message.includes("AI service might be unresponsive") || // From new function
+        error.message.includes("AI response was not in the expected format") || // From new function
+        error.message.includes("had trouble understanding the product types")) { // Original, still could be relevant
+      throw error; // Re-throw these more specific errors
     }
+    // General fallback
     throw new Error(`Unable to build the starter kit for "${activity}". ${error.message.startsWith('Unable to build') ? '' : 'Details: '}${error.message}`);
   }
 }
 
+// searchLearningResources and openProductLinks remain unchanged
 export async function searchLearningResources(activity: string): Promise<LearningResource[]> {
   if (!activity || activity.trim() === "") {
     console.warn("searchLearningResources called with empty activity string.");

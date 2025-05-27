@@ -17,7 +17,7 @@ const corsHeaders = {
 };
 
 const PLACEHOLDER_IMAGE_URL = "https://www.svgrepo.com/show/508699/landscape-placeholder.svg";
-const BOOK_IMAGE = "https://blog.openlibrary.org/files/2023/04/cropped-cropped-openlibrary-header.png";
+// const BOOK_IMAGE = "https://blog.openlibrary.org/files/2023/04/cropped-cropped-openlibrary-header.png"; // Removed
 const WIKIPEDIA_LOGO_URL = "https://logos-world.net/wp-content/uploads/2020/09/Wikipedia-Logo.png";
 const UDEMY_LOGO_URL = "https://logowik.com/content/uploads/images/udemy-new-20212512.jpg";
 const COURSERA_LOGO_URL = "https://about.coursera.org/static/blueCoursera-646f855eae3d677239ea9db93d6c9e17.svg";
@@ -70,38 +70,7 @@ Return only the optimized keyword/phrase, nothing else. Do not add quotation mar
   }
 }
 
-async function fetchOpenLibraryBooks(activity: string, limit: number = 2): Promise<LearningResource[]> {
-  const resources: LearningResource[] = [];
-  try {
-    const searchQuery = `"${activity} for beginners" OR "${activity} guide" OR "${activity} fundamentals" OR "learn ${activity}" OR "${activity} strategy"`;
-    const apiUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(searchQuery)}&limit=${limit}&fields=key,title,author_name,first_publish_year,isbn,subtitle,cover_i,subject`;
-
-    const response = await fetch(apiUrl);
-    if (!response.ok) {
-      console.error(`OpenLibrary API error for ${activity}: ${response.status} ${await response.text()}`);
-      return resources;
-    }
-    const data = await response.json();
-    if (data.docs) {
-      for (const doc of data.docs) {
-        if (resources.length >= limit) break;
-        if (doc.title) {
-          resources.push({
-            title: doc.title + (doc.subtitle ? `: ${doc.subtitle}` : ''),
-            link: `https://openlibrary.org${doc.key}`,
-            type: 'Book',
-            description: `A book by ${doc.author_name ? doc.author_name.join(', ') : 'Unknown author'}${doc.first_publish_year ? `, first published in ${doc.first_publish_year}` : ''}.`,
-            source: 'Open Library',
-            image: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : BOOK_IMAGE,
-          });
-        }
-      }
-    }
-  } catch (error) {
-    console.error(`Failed to fetch or process OpenLibrary data for ${activity}:`, error);
-  }
-  return resources;
-}
+// Removed fetchOpenLibraryBooks function
 
 // Helper function to parse ISO 8601 duration to seconds
 function parseISO8601Duration(duration: string): number {
@@ -113,7 +82,7 @@ function parseISO8601Duration(duration: string): number {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-async function fetchYouTubeResources(activity: string, limit: number = 2): Promise<LearningResource[]> {
+async function fetchYouTubeResources(activity: string, limit: number = 1): Promise<LearningResource[]> { // Default limit is 1, will be called with 1
   const YOUTUBE_API_KEY = Deno.env.get("YOUTUBE_API_KEY");
   if (!YOUTUBE_API_KEY) {
     console.warn("YOUTUBE_API_KEY is not set. Skipping Youtube.");
@@ -123,7 +92,7 @@ async function fetchYouTubeResources(activity: string, limit: number = 2): Promi
   const resources: LearningResource[] = [];
   const minDurationSeconds = 120; // 2 minutes
   // Fetch more results initially to have a better chance of finding videos meeting the duration criteria
-  const searchLimit = Math.max(limit * 3, 10); // Fetch at least 10, or 3x the desired limit
+  const searchLimit = Math.max(limit * 3, 10); // Fetch at least 10 (or 3x desired limit if limit > 3)
 
   try {
     const searchQuery = `${activity} for beginners tutorial OR ${activity} introduction OR learn ${activity}`;
@@ -160,14 +129,14 @@ async function fetchYouTubeResources(activity: string, limit: number = 2): Promi
     if (!detailsResponse.ok) {
       const errorText = await detailsResponse.text();
       console.error(`YouTube Videos API error for IDs ${videoIds}: ${detailsResponse.status} ${errorText}`);
-      return resources; // Or potentially return what we have from search if snippet-only is acceptable as fallback
+      return resources;
     }
 
     const detailsData = await detailsResponse.json();
 
     if (detailsData.items) {
       for (const item of detailsData.items) {
-        if (resources.length >= limit) break;
+        if (resources.length >= limit) break; // This will ensure only 'limit' (1 in this case) videos are added
 
         const durationStr = item.contentDetails?.duration;
         if (!durationStr) continue;
@@ -318,8 +287,8 @@ serve(async (req: Request) => {
     const activity = await getBroaderKeyword(originalActivity);
 
     const allResourcesPromises = [
-      fetchOpenLibraryBooks(activity, 2),
-      fetchYouTubeResources(activity, 2), // This will now filter by duration
+      // fetchOpenLibraryBooks(activity, 2), // Removed
+      fetchYouTubeResources(activity, 1),    // Fetch only 1 YouTube video
       fetchOnlineCourses(activity, 2),
       fetchWebsites(activity, 2),
       fetchCommunities(activity, 1),
