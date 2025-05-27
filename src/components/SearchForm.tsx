@@ -11,14 +11,15 @@ const MOBILE_PLACEHOLDER = "Search starter kits...";
 const MOBILE_BREAKPOINT = 768;
 
 const MAX_TEXTAREA_HEIGHT = 100; // Max height in pixels (e.g., approx 3-4 lines)
+const MAX_SEARCH_CHARACTERS = 50; // Maximum characters for the search input
 
 const SearchForm: React.FC = () => {
-  const { 
-    searchTerm, 
-    setSearchTerm, 
-    setProducts, 
-    setIsLoading, 
-    setError 
+  const {
+    searchTerm,
+    setSearchTerm,
+    setProducts,
+    setIsLoading,
+    setError
   } = useContext(ProductContext);
 
   const [lastSearchTime, setLastSearchTime] = useState<number>(0);
@@ -43,32 +44,26 @@ const SearchForm: React.FC = () => {
   useEffect(() => {
     if (textareaRef.current) {
       const ta = textareaRef.current;
-      // console.log(`[ResizableTextarea] searchTerm changed: "${searchTerm}"`);
-      // console.log(`[ResizableTextarea] Current height before adjustment: ${ta.style.height}`);
-      ta.style.height = '1px'; 
+      ta.style.height = '1px';
       const scrollHeight = ta.scrollHeight;
-      // console.log(`[ResizableTextarea] Measured scrollHeight: ${scrollHeight}px`);
       if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
         ta.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
         ta.style.overflowY = 'auto';
-        // console.log(`[ResizableTextarea] Applied MAX_TEXTAREA_HEIGHT: ${MAX_TEXTAREA_HEIGHT}px, overflowY: auto`);
       } else {
         ta.style.height = `${scrollHeight}px`;
         ta.style.overflowY = 'hidden';
-        // console.log(`[ResizableTextarea] Applied scrollHeight: ${scrollHeight}px, overflowY: hidden`);
       }
-    } else {
-      // console.log("[ResizableTextarea] textareaRef.current is null or undefined.");
     }
   }, [searchTerm]);
 
   const handleSearchTermChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setSearchTerm(event.target.value);
+    // Enforce maxLength here as well, as `maxLength` attribute might not be strictly enforced by all browsers for textarea
+    setSearchTerm(event.target.value.slice(0, MAX_SEARCH_CHARACTERS));
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault(); 
+      event.preventDefault();
       if (formRef.current) {
         if (typeof formRef.current.requestSubmit === 'function') {
           formRef.current.requestSubmit();
@@ -81,7 +76,7 @@ const SearchForm: React.FC = () => {
       }
     }
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
@@ -112,9 +107,9 @@ const SearchForm: React.FC = () => {
   };
 
   return (
-    <motion.form 
+    <motion.form
       ref={formRef}
-      onSubmit={handleSubmit} 
+      onSubmit={handleSubmit}
       className="relative"
       initial={{ scale: 0.95, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -129,13 +124,14 @@ const SearchForm: React.FC = () => {
           onKeyDown={handleKeyDown}
           rows={1}
           placeholder={currentPlaceholder}
+          maxLength={MAX_SEARCH_CHARACTERS} // Added maxLength attribute
           className={
-            "w-full min-w-0 resize-none " + 
-            "overflow-hidden " + 
-            "py-5 md:py-7 " + 
-            "px-5 md:px-8 " + 
-            "pr-20 md:pr-24 " + // Increased padding-right to avoid overlap with the search button
-            "text-base sm:text-lg md:text-xl " + 
+            "w-full min-w-0 resize-none " +
+            "overflow-hidden " +
+            "py-5 md:py-7 " +
+            "px-5 md:px-8 " +
+            "pr-20 md:pr-24 " +
+            "text-base sm:text-lg md:text-xl " +
             "bg-gray-900/50 text-white placeholder-gray-400 " +
             "border border-gray-700/50 rounded-2xl shadow-sm backdrop-blur-sm " +
             "focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent " +
@@ -150,6 +146,10 @@ const SearchForm: React.FC = () => {
         >
           <Search className="h-6 w-6" />
         </button>
+      </div>
+      {/* Optional: Display character count / limit */}
+      <div className="text-right text-xs text-gray-500 mt-1 pr-2">
+        {searchTerm.length} / {MAX_SEARCH_CHARACTERS}
       </div>
     </motion.form>
   );

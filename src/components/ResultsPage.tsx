@@ -8,19 +8,20 @@ import { searchLearningResources } from '../services/api';
 import { LearningResource } from '../types/types';
 
 const ResultsPage: React.FC = () => {
-  const { 
-    products, 
-    searchTerm, 
-    setProducts, 
-    setSearchTerm, 
-    selectedTier, 
+  const {
+    products,
+    searchTerm,
+    setProducts,
+    setSearchTerm,
+    selectedTier,
     setSelectedTier,
     learningResources,
     setLearningResources,
     isLearningResourcesLoading,
     setIsLearningResourcesLoading,
     learningResourcesError,
-    setLearningResourcesError
+    setLearningResourcesError,
+    isLoading: isAmazonProductsLoading, // isLoading from context refers to Amazon products
   } = useContext(ProductContext);
 
   const [activeTab, setActiveTab] = useState<'starterProducts' | 'learningResources'>('starterProducts');
@@ -29,6 +30,37 @@ const ResultsPage: React.FC = () => {
     return products.filter(p => p.tier === selectedTier);
   }, [products, selectedTier]);
 
+  // useEffect to fetch learning resources automatically after Amazon products are loaded
+  useEffect(() => {
+    if (!isAmazonProductsLoading && products.length > 0 && searchTerm && learningResources.length === 0 && !learningResourcesError && !isLearningResourcesLoading) {
+      const fetchResources = async () => {
+        setIsLearningResourcesLoading(true);
+        setLearningResourcesError('');
+        try {
+          const resources = await searchLearningResources(searchTerm);
+          setLearningResources(resources);
+        } catch (err) {
+          setLearningResourcesError(err instanceof Error ? err.message : 'Failed to load learning resources.');
+          console.error(err);
+        } finally {
+          setIsLearningResourcesLoading(false);
+        }
+      };
+      fetchResources();
+    }
+  }, [
+    isAmazonProductsLoading,
+    products.length,
+    searchTerm,
+    learningResources.length,
+    isLearningResourcesLoading,
+    learningResourcesError,
+    setLearningResources,
+    setIsLearningResourcesLoading,
+    setLearningResourcesError,
+  ]);
+
+  // useEffect to fetch learning resources when the tab is clicked (if not already loaded/loading)
   useEffect(() => {
     if (activeTab === 'learningResources' && searchTerm && learningResources.length === 0 && !learningResourcesError && !isLearningResourcesLoading) {
       const fetchResources = async () => {
@@ -55,6 +87,7 @@ const ResultsPage: React.FC = () => {
     setLearningResources([]);
     setLearningResourcesError('');
     setActiveTab('starterProducts');
+    setSelectedTier('essential'); // Reset tier selection
   };
 
   const productTiers = [
@@ -63,13 +96,13 @@ const ResultsPage: React.FC = () => {
     { id: 'luxury', name: 'Luxury', icon: Crown, description: 'High-end options' }
   ] as const;
 
-  const tabButtonClasses = (tabName: 'starterProducts' | 'learningResources') => 
+  const tabButtonClasses = (tabName: 'starterProducts' | 'learningResources') =>
     `py-3 px-4 sm:px-6 rounded-t-lg font-medium transition-colors flex items-center gap-2 text-sm sm:text-base ${
-      activeTab === tabName 
-        ? 'bg-gray-800/70 text-indigo-400 border-b-2 border-indigo-500' 
+      activeTab === tabName
+        ? 'bg-gray-800/70 text-indigo-400 border-b-2 border-indigo-500'
         : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
     }`;
-  
+
   const renderResourceTypeIcon = (type: LearningResource['type']) => {
     switch (type) {
       case 'Book': return <Book className="w-5 h-5 text-yellow-400 flex-shrink-0" />;
@@ -82,33 +115,28 @@ const ResultsPage: React.FC = () => {
   };
 
   const renderLearningResourceCard = (resource: LearningResource, index: number) => (
-    <motion.a 
-      key={index} 
-      href={resource.link} 
-      target="_blank" 
+    <motion.a
+      key={index}
+      href={resource.link}
+      target="_blank"
       rel="noopener noreferrer"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
-      // Changed to always be flex-col for a stacked layout
       className="group bg-gray-800/60 hover:bg-gray-700/70 rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-700/50 flex flex-col"
     >
-      {/* Image Section: Always on top */}
       {resource.image ? (
-        <img 
-          src={resource.image} 
-          alt={resource.title} 
-          // Consistent image styling: full width of card, fixed height, object-cover for aspect ratio
-          className="w-full h-48 object-cover" 
+        <img
+          src={resource.image}
+          alt={resource.title}
+          className="w-full h-48 object-cover"
         />
       ) : (
-        // Fallback if no image is available
         <div className="w-full h-48 bg-gray-700/50 flex items-center justify-center">
           <ImageIcon className="w-16 h-16 text-gray-500" />
         </div>
       )}
-      {/* Text Content Section: Always below the image */}
-      <div className="p-5 flex flex-col justify-between flex-grow"> {/* flex-grow allows this part to take remaining space if card heights are uniform in a grid */}
+      <div className="p-5 flex flex-col justify-between flex-grow">
         <div>
           <div className="flex items-center mb-2">
             {renderResourceTypeIcon(resource.type)}
@@ -199,7 +227,7 @@ const ResultsPage: React.FC = () => {
           )}
 
           {activeTab === 'learningResources' && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -227,13 +255,14 @@ const ResultsPage: React.FC = () => {
                     <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
                     <p className="text-red-400 text-lg font-semibold">Failed to Load Resources</p>
                     <p className="text-red-300/80 mb-4 text-sm">{learningResourcesError}</p>
-                    <button 
+                    <button
                         onClick={() => {
-                            setLearningResources([]); 
+                            // Clear existing resources and error to allow re-fetch
+                            setLearningResources([]);
                             setLearningResourcesError('');
+                            // Manually trigger fetch, similar to tab click logic
                              const fetchResources = async () => {
                                 setIsLearningResourcesLoading(true);
-                                setLearningResourcesError('');
                                 try {
                                 const resources = await searchLearningResources(searchTerm);
                                 setLearningResources(resources);
