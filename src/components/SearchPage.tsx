@@ -20,7 +20,7 @@ const SearchPage: React.FC = () => {
           </h1>
         </div>
         <p className="text-2xl text-gray-400 max-w-lg mx-auto">
-          Generate personalized starter kits for any hobby, activity, or interest
+          Generate AI-Powered starter kits for any hobby, activity, or interest
         </p>
       </motion.div>
       <div className="w-full max-w-2xl mx-auto">

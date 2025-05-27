@@ -1,15 +1,16 @@
-import React, { useContext, useState, useCallback, useEffect } from 'react'; // Added useEffect
+import React, { useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { searchAmazonProducts } from '../services/api';
 import { ProductContext } from '../context/ProductContext';
 
-const COOLDOWN_PERIOD = 2000; // 2 seconds cooldown between searches
+const COOLDOWN_PERIOD = 2000;
 
-// Define placeholder texts
 const DESKTOP_PLACEHOLDER = "What starter kit are you looking for?";
-const MOBILE_PLACEHOLDER = "Search starter kits..."; // Shorter version for mobile
-const MOBILE_BREAKPOINT = 768; // Tailwind's `md` breakpoint
+const MOBILE_PLACEHOLDER = "Search starter kits...";
+const MOBILE_BREAKPOINT = 768;
+
+const MAX_TEXTAREA_HEIGHT = 100; // Max height in pixels (e.g., approx 3-4 lines)
 
 const SearchForm: React.FC = () => {
   const { 
@@ -19,10 +20,12 @@ const SearchForm: React.FC = () => {
     setIsLoading, 
     setError 
   } = useContext(ProductContext);
+
   const [lastSearchTime, setLastSearchTime] = useState<number>(0);
-  
-  // State for the dynamic placeholder
   const [currentPlaceholder, setCurrentPlaceholder] = useState(DESKTOP_PLACEHOLDER);
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -32,54 +35,77 @@ const SearchForm: React.FC = () => {
         setCurrentPlaceholder(DESKTOP_PLACEHOLDER);
       }
     };
-
-    // Set initial placeholder based on screen size
-    handleResize(); 
-
+    handleResize();
     window.addEventListener('resize', handleResize);
-    
-    // Cleanup listener on component unmount
     return () => window.removeEventListener('resize', handleResize);
-  }, []); // Empty dependency array ensures this runs only on mount and unmount
+  }, []);
 
+  useEffect(() => {
+    if (textareaRef.current) {
+      const ta = textareaRef.current;
+      // console.log(`[ResizableTextarea] searchTerm changed: "${searchTerm}"`);
+      // console.log(`[ResizableTextarea] Current height before adjustment: ${ta.style.height}`);
+      ta.style.height = '1px'; 
+      const scrollHeight = ta.scrollHeight;
+      // console.log(`[ResizableTextarea] Measured scrollHeight: ${scrollHeight}px`);
+      if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
+        ta.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
+        ta.style.overflowY = 'auto';
+        // console.log(`[ResizableTextarea] Applied MAX_TEXTAREA_HEIGHT: ${MAX_TEXTAREA_HEIGHT}px, overflowY: auto`);
+      } else {
+        ta.style.height = `${scrollHeight}px`;
+        ta.style.overflowY = 'hidden';
+        // console.log(`[ResizableTextarea] Applied scrollHeight: ${scrollHeight}px, overflowY: hidden`);
+      }
+    } else {
+      // console.log("[ResizableTextarea] textareaRef.current is null or undefined.");
+    }
+  }, [searchTerm]);
+
+  const handleSearchTermChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setSearchTerm(event.target.value);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault(); 
+      if (formRef.current) {
+        if (typeof formRef.current.requestSubmit === 'function') {
+          formRef.current.requestSubmit();
+        } else {
+          const submitButton = formRef.current.querySelector('button[type="submit"]');
+          if (submitButton instanceof HTMLElement) {
+              submitButton.click();
+          }
+        }
+      }
+    }
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
-
     const now = Date.now();
-    const timeSinceLastSearch = now - lastSearchTime;
-    
-    if (timeSinceLastSearch < COOLDOWN_PERIOD) {
-      setError(`Please wait ${Math.ceil((COOLDOWN_PERIOD - timeSinceLastSearch) / 1000)} seconds before searching again.`);
+    if (now - lastSearchTime < COOLDOWN_PERIOD) {
+      setError(`Please wait ${Math.ceil((COOLDOWN_PERIOD - (now - lastSearchTime)) / 1000)} seconds.`);
       return;
     }
-    
     setIsLoading(true);
     setError('');
     setProducts([]);
     setLastSearchTime(now);
-    
     try {
       const results = await searchAmazonProducts(searchTerm);
-      if (results.length === 0) {
-        setError('No products found. Please try a different search term.');
-      } else if (results.length < 5) {
-        setError(`Only ${results.length} products found. Try using more general search terms for better results.`);
-        setProducts(results); // Still show the products we found
-      } else {
+      if (results.length === 0) setError('No products found. Please try a different search term.');
+      else if (results.length < 5) {
+        setError(`Only ${results.length} products found. Try more general terms.`);
         setProducts(results);
-      }
-    } catch (error) {
-      let errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
-      
-      if (errorMessage.includes('429')) {
-        errorMessage = 'We\'re experiencing high traffic. Please try again in a few moments.';
-      } else if (errorMessage.includes('Insufficient products')) {
-        errorMessage = 'Not enough products found. Try using more general search terms or a different category.';
-      }
-      
-      setError(errorMessage);
-      console.error('Error searching products:', error);
+      } else setProducts(results);
+    } catch (err) {
+      let msg = err instanceof Error ? err.message : 'Something went wrong.';
+      if (msg.includes('429')) msg = 'High traffic. Please try again soon.';
+      setError(msg);
+      console.error('Error searching products:', err);
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +113,7 @@ const SearchForm: React.FC = () => {
 
   return (
     <motion.form 
+      ref={formRef}
       onSubmit={handleSubmit} 
       className="relative"
       initial={{ scale: 0.95, opacity: 0 }}
@@ -95,12 +122,25 @@ const SearchForm: React.FC = () => {
     >
       <div className="relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder={currentPlaceholder} // Use the dynamic placeholder state
-          className="w-full py-7 px-8 pr-16 text-xl bg-gray-900/50 text-white placeholder-gray-400 border border-gray-700/50 rounded-2xl shadow-sm backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all hover:shadow-lg hover:shadow-indigo-500/10"
+          onChange={handleSearchTermChange}
+          onKeyDown={handleKeyDown}
+          rows={1}
+          placeholder={currentPlaceholder}
+          className={
+            "w-full min-w-0 resize-none " + 
+            "overflow-hidden " + 
+            "py-5 md:py-7 " + 
+            "px-5 md:px-8 " + 
+            "pr-20 md:pr-24 " + // Increased padding-right to avoid overlap with the search button
+            "text-base sm:text-lg md:text-xl " + 
+            "bg-gray-900/50 text-white placeholder-gray-400 " +
+            "border border-gray-700/50 rounded-2xl shadow-sm backdrop-blur-sm " +
+            "focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent " +
+            "transition-all hover:shadow-lg hover:shadow-indigo-500/10"
+          }
           required
         />
         <button
