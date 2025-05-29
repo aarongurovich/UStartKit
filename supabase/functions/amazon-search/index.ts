@@ -31,6 +31,11 @@ interface FormattedProduct {
   tier: 'essential' | 'premium' | 'luxury';
 }
 
+interface PriceRangeAPI {
+    min?: number;
+    max?: number;
+}
+
 let openai: OpenAI | null = null;
 const OPENAI_API_KEY_FUNC = Deno.env.get("OPENAI_API_KEY");
 if (OPENAI_API_KEY_FUNC) {
@@ -166,10 +171,8 @@ function formatProduct(apiProduct: AmazonProduct, tier: 'essential' | 'premium' 
   if (excludeKeywords.some(keyword => title.includes(keyword))) {
     return null;
   }
-
-  // Tier-specific filtering can be more nuanced in the selection logic
-  // if (tier === 'essential' && rating < 3.5 && reviews < 10) return null; 
-  if (rating < 3.0 && reviews < 5) return null; // General low-quality filter
+ 
+  if (rating < 3.0 && reviews < 5) return null;
 
   return {
     name: apiProduct.product_title,
@@ -185,10 +188,9 @@ function formatProduct(apiProduct: AmazonProduct, tier: 'essential' | 'premium' 
 
 function parsePrice(priceStr: string): number {
     if (!priceStr) return Infinity;
-    // Handle price ranges like "$19.99 - $29.99", take the lower end.
     const firstPriceMatch = priceStr.match(/[\$€£]?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/);
     if (!firstPriceMatch || !firstPriceMatch[1]) return Infinity;
-    const numStr = firstPriceMatch[1].replace(/[^0-9.]/g, ''); // Allow . as decimal separator
+    const numStr = firstPriceMatch[1].replace(/[^0-9.]/g, '');
     const price = parseFloat(numStr);
     return isNaN(price) ? Infinity : price;
 }
@@ -200,24 +202,23 @@ function extractBrand(productTitle: string): string | null {
       "KitchenAid", "Cuisinart", "OXO", "Ninja", "Instant Pot", "Keurig", "Breville", "Vitamix",
       "Logitech", "Anker", "Bose", "JBL", "Sennheiser", "Audio-Technica", "Razer", "Corsair",
       "Canon", "Nikon", "GoPro", "DJI", "Fujifilm", "Olympus",
-      "Stanley", "DeWalt", "Craftsman", "Makita", "Bosch", "Milwaukee", // Tools
-      "Nike", "Adidas", "Under Armour", "Puma", "Lululemon", "Patagonia", "The North Face", // Apparel
-      "Fisher-Price", "LEGO", "Hasbro", "Mattel", "Playmobil", // Toys
-      "Amazon Basics", "Utopia Kitchen", "Simple Modern" // Common Amazon brands
+      "Stanley", "DeWalt", "Craftsman", "Makita", "Bosch", "Milwaukee", 
+      "Nike", "Adidas", "Under Armour", "Puma", "Lululemon", "Patagonia", "The North Face", 
+      "Fisher-Price", "LEGO", "Hasbro", "Mattel", "Playmobil", 
+      "Amazon Basics", "Utopia Kitchen", "Simple Modern"
     ];
     const titleLower = productTitle.toLowerCase();
     for (const brand of knownBrands) {
-      // Check for brand name as a whole word or followed by a space/common delimiter
       const brandLower = brand.toLowerCase();
       if (titleLower.includes(brandLower + " ") || titleLower.includes(brandLower + "-") || titleLower.startsWith(brandLower + " ") || titleLower === brandLower) {
         return brand;
       }
     }
   
-    const words = productTitle.split(/[\s-]+/); // Split by space or hyphen
+    const words = productTitle.split(/[\s-]+/); 
     if (words.length > 0) {
       const firstWord = words[0];
-      if (firstWord.length > 2 && firstWord === firstWord.toUpperCase() && /^[A-Z0-9]+$/.test(firstWord)) { // All caps, e.g., "JBL"
+      if (firstWord.length > 2 && firstWord === firstWord.toUpperCase() && /^[A-Z0-9]+$/.test(firstWord)) { 
         return firstWord;
       }
       if (firstWord.length >= 3 && /^[A-Z][a-zA-Z0-9]+$/.test(firstWord)) {
@@ -243,7 +244,12 @@ serve(async (req: Request) => {
       });
     }
 
-    const { baseKeywords, productType } = await req.json();
+    const { baseKeywords, productType, priceRange } = await req.json() as {
+        baseKeywords: string;
+        productType: string;
+        priceRange?: PriceRangeAPI;
+    };
+
     if (!baseKeywords || typeof baseKeywords !== 'string' || baseKeywords.trim() === '' ||
         !productType || typeof productType !== 'string' || productType.trim() === '') {
       return new Response(JSON.stringify({ error: 'Invalid request: baseKeywords and productType are required and cannot be empty.' }), {
@@ -269,21 +275,46 @@ serve(async (req: Request) => {
         });
     }
     
-    // Filter out very low quality products first (e.g., no image, no price)
     const initiallyValidProducts = candidateProducts.filter(p => p.product_photo && p.product_price && p.product_url && p.product_url.includes('amazon.com'));
 
-    // Format and then filter based on formatProduct's own rules (like excludeKeywords)
     let suitableRawProducts = initiallyValidProducts
-        .map(p => { // Temporarily format to use formatProduct's exclusion logic
-            const tempFormatted = formatProduct(p, 'essential', ''); // Tier/Reason don't matter for this initial filter step
-            return tempFormatted ? p : null; // Keep original if formatting is successful
+        .map(p => { 
+            const tempFormatted = formatProduct(p, 'essential', ''); 
+            return tempFormatted ? p : null;
         })
-        .filter((p): p is AmazonProduct => p !== null)
-        .sort((a, b) => parsePrice(a.product_price) - parsePrice(b.product_price)); // Sort all candidates by price
+        .filter((p): p is AmazonProduct => p !== null);
+
+    if (priceRange && (typeof priceRange.min === 'number' || typeof priceRange.max === 'number')) {
+        suitableRawProducts = suitableRawProducts.filter(p => {
+            const productPriceNum = parsePrice(p.product_price);
+            if (isNaN(productPriceNum)) return false; 
+
+            const minOK = typeof priceRange.min === 'number' ? productPriceNum >= priceRange.min : true;
+            const maxOK = typeof priceRange.max === 'number' ? productPriceNum <= priceRange.max : true;
+            return minOK && maxOK;
+        });
+    }
+    
+    // Title relevance filtering
+    const productTypeCore = productType.toLowerCase()
+        .replace(/(beginner's guide to|guide to|book on|for beginners|set|kit)/g, "") // Remove common modifiers
+        .replace(/s\b/g, "") // Remove plural 's' at end of words for better matching
+        .trim();
+    const coreTerms = productTypeCore.split(' ')
+        .filter(term => term.length > 2 && !["a", "an", "the", "and", "or", "for", "with", "of", "in", "to", "is", "are"].includes(term));
+
+    if (coreTerms.length > 0) {
+        suitableRawProducts = suitableRawProducts.filter(p => {
+            const titleLower = p.product_title.toLowerCase().replace(/s\b/g, ""); // Normalize title plurals too
+            return coreTerms.every(term => titleLower.includes(term));
+        });
+    }
+    
+    suitableRawProducts.sort((a, b) => parsePrice(a.product_price) - parsePrice(b.product_price));
 
 
     if (suitableRawProducts.length === 0) {
-      console.warn(`No suitable formatted products found for: ${fullQuery} after initial filtering. Candidate count: ${candidateProducts.length}`);
+      console.warn(`No suitable products found for: ${fullQuery} (product type: "${productType}", core terms: "${coreTerms.join(',')}") after all filters. Initial candidates: ${candidateProducts.length}`);
       return new Response(JSON.stringify([]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -298,12 +329,12 @@ serve(async (req: Request) => {
         if (usedProductLinks.has(addAffiliateTag(p.product_url))) continue;
         const rating = parseFloat(p.product_star_rating) || 0;
         const reviews = parseInt(String(p.product_num_ratings || '0').replace(/,/g, ''), 10) || 0;
-        if (rating >= 3.5 && reviews >=10) { // Basic quality for essential
+        if (rating >= 3.5 && reviews >=10) { 
             essentialProduct = p;
             break;
         }
     }
-    if (!essentialProduct && suitableRawProducts.length > 0) { // Fallback: first available if no >3.5 rating found
+    if (!essentialProduct && suitableRawProducts.length > 0) { 
         essentialProduct = suitableRawProducts.find(p => !usedProductLinks.has(addAffiliateTag(p.product_url)));
     }
 
@@ -313,43 +344,25 @@ serve(async (req: Request) => {
     }
 
     // 2. Select Luxury Product
-    // Iterate from most expensive. Must be more expensive than essential.
-    for (let i = suitableRawProducts.length - 1; i >= 0; i--) {
-        const p = suitableRawProducts[i];
-        if (usedProductLinks.has(addAffiliateTag(p.product_url))) continue;
+    const luxuryCandidates = suitableRawProducts.filter(p => !usedProductLinks.has(addAffiliateTag(p.product_url)));
+    luxuryCandidates.sort((a,b) => parsePrice(b.product_price) - parsePrice(a.product_price)); 
+
+    for (const p of luxuryCandidates) {
         const rating = parseFloat(p.product_star_rating) || 0;
         const reviews = parseInt(String(p.product_num_ratings || '0').replace(/,/g, ''), 10) || 0;
-
-        if (rating >= 4.0 && reviews >= 25) { 
-            if (essentialProduct && parsePrice(p.product_price) <= parsePrice(essentialProduct.product_price) * 1.2) { // Must be significantly more expensive
-                continue; 
-            }
+        if (rating >= 4.0 && reviews >= 20) { 
+            if (essentialProduct && parsePrice(p.product_price) <= parsePrice(essentialProduct.product_price) * 1.2) continue; 
+            
             const currentBrand = extractBrand(p.product_title);
-            if (essentialBrand && currentBrand && currentBrand === essentialBrand) { // Strong preference for same brand
-                luxuryProduct = p;
+            if (essentialBrand && currentBrand === essentialBrand) {
+                luxuryProduct = p; 
                 break;
             }
-            if (!luxuryProduct) luxuryProduct = p; // Tentatively select if no same-brand found yet, keep iterating for same-brand
+            if (!luxuryProduct) luxuryProduct = p; 
         }
     }
-     // If after preferring same brand, luxuryProduct is still not set, or if essentialBrand is null, pick best rated high price
-    if (!luxuryProduct || (essentialBrand && extractBrand(luxuryProduct.product_title) !== essentialBrand)) {
-        let bestFallbackLuxury: AmazonProduct | undefined;
-        for (let i = suitableRawProducts.length - 1; i >= 0; i--) {
-            const p = suitableRawProducts[i];
-            if (usedProductLinks.has(addAffiliateTag(p.product_url))) continue;
-            if (essentialProduct && parsePrice(p.product_price) <= parsePrice(essentialProduct.product_price) * 1.2) continue;
-            const rating = parseFloat(p.product_star_rating) || 0;
-            if (rating >= 4.0) {
-                 if (!bestFallbackLuxury || rating > (parseFloat(bestFallbackLuxury.product_star_rating) || 0) ) {
-                    bestFallbackLuxury = p;
-                 }
-            }
-        }
-        if (bestFallbackLuxury) luxuryProduct = bestFallbackLuxury;
-        else if (!luxuryProduct && suitableRawProducts.length > 0) { // Absolute fallback to most expensive if no other criteria met
-             luxuryProduct = suitableRawProducts.filter(p => !usedProductLinks.has(addAffiliateTag(p.product_url)) && (!essentialProduct || parsePrice(p.product_price) > parsePrice(essentialProduct.product_price))).pop();
-        }
+    if (!luxuryProduct && luxuryCandidates.length > 0) { 
+        luxuryProduct = luxuryCandidates.find(p => (!essentialProduct || parsePrice(p.product_price) > parsePrice(essentialProduct.product_price)));
     }
 
 
@@ -358,7 +371,6 @@ serve(async (req: Request) => {
     }
 
     // 3. Select Premium Product
-    // Should be priced between E and L. Prefer same brand. Good rating.
     const premiumCandidatePool = suitableRawProducts.filter(p => !usedProductLinks.has(addAffiliateTag(p.product_url)));
     let bestPremiumCandidate: AmazonProduct | undefined;
     let bestPremiumScore = -1;
@@ -371,16 +383,21 @@ serve(async (req: Request) => {
         if (rating < 3.8 || reviews < 15) continue;
 
         let priceOk = true;
-        if (essentialProduct && price <= parsePrice(essentialProduct.product_price)) priceOk = false;
-        if (luxuryProduct && price >= parsePrice(luxuryProduct.product_price)) priceOk = false;
+        const essentialPrice = essentialProduct ? parsePrice(essentialProduct.product_price) : -1;
+        const luxuryPrice = luxuryProduct ? parsePrice(luxuryProduct.product_price) : Infinity;
+
+        if (essentialProduct && price <= essentialPrice) priceOk = false;
+        if (luxuryProduct && price >= luxuryPrice) priceOk = false;
         if (!priceOk) continue;
+        
+        if (essentialProduct && !luxuryProduct && price <= essentialPrice) continue;
+        if (!essentialProduct && luxuryProduct && price >= luxuryPrice) continue;
 
-        // If only E exists, P must be > E. If only L exists, P must be < L. (Implicitly handled by above)
 
-        let score = rating; // Base score on rating
+        let score = rating; 
         const currentBrand = extractBrand(p.product_title);
         if (essentialBrand && currentBrand && currentBrand === essentialBrand) {
-            score += 0.5; // Boost for same brand
+            score += 0.5; 
         }
 
         if (score > bestPremiumScore) {
@@ -391,76 +408,37 @@ serve(async (req: Request) => {
     premiumProduct = bestPremiumCandidate;
 
     if (premiumProduct) {
-        // Final check on price hierarchy if all three are tentatively selected
-        if (essentialProduct && luxuryProduct && premiumProduct) {
-            if (parsePrice(premiumProduct.product_price) <= parsePrice(essentialProduct.product_price) ||
-                parsePrice(premiumProduct.product_price) >= parsePrice(luxuryProduct.product_price)) {
-                premiumProduct = undefined; // Invalidate if strict hierarchy is broken
-            }
-        }
-        if (premiumProduct) {
-             usedProductLinks.add(addAffiliateTag(premiumProduct.product_url));
-        } else {
-            // try to find another premium if the selected one broke hierarchy but others exist
-            const otherPremiumCandidates = premiumCandidatePool.filter(cand => cand.product_url !== bestPremiumCandidate?.product_url);
-            otherPremiumCandidates.sort((a, b) => (parseFloat(b.product_star_rating) || 0) - (parseFloat(a.product_star_rating) || 0));
-            for(const p_cand of otherPremiumCandidates) {
-                 const price_cand = parsePrice(p_cand.product_price);
-                 let priceOkCand = true;
-                 if (essentialProduct && price_cand <= parsePrice(essentialProduct.product_price)) priceOkCand = false;
-                 if (luxuryProduct && price_cand >= parsePrice(luxuryProduct.product_price)) priceOkCand = false;
-                 if(priceOkCand && (parseFloat(p_cand.product_star_rating) || 0) >= 3.8) {
-                    premiumProduct = p_cand;
-                    usedProductLinks.add(addAffiliateTag(premiumProduct.product_url));
-                    break;
-                 }
-            }
-        }
+        usedProductLinks.add(addAffiliateTag(premiumProduct.product_url));
     }
     
-    // Add to final list with reasons
     if (essentialProduct) {
         const reason = await getReasonForInclusion(essentialProduct.product_title, baseKeywords, productType, openai);
         const formatted = formatProduct(essentialProduct, 'essential', reason);
         if (formatted) finalTieredProducts.push(formatted);
     }
     if (premiumProduct) {
-        const reason = await getReasonForInclusion(premiumProduct.product_title, baseKeywords, productType, openai);
-        const formatted = formatProduct(premiumProduct, 'premium', reason);
-        if (formatted) finalTieredProducts.push(formatted);
+        let isDuplicate = false;
+        if(essentialProduct && premiumProduct.product_url === essentialProduct.product_url) isDuplicate = true;
+        if(luxuryProduct && premiumProduct.product_url === luxuryProduct.product_url) isDuplicate = true;
+        
+        if(!isDuplicate) {
+            const reason = await getReasonForInclusion(premiumProduct.product_title, baseKeywords, productType, openai);
+            const formatted = formatProduct(premiumProduct, 'premium', reason);
+            if (formatted) finalTieredProducts.push(formatted);
+        }
     }
     if (luxuryProduct) {
-        const reason = await getReasonForInclusion(luxuryProduct.product_title, baseKeywords, productType, openai);
-        const formatted = formatProduct(luxuryProduct, 'luxury', reason);
-        if (formatted) finalTieredProducts.push(formatted);
-    }
+         let isDuplicate = false;
+        if(essentialProduct && luxuryProduct.product_url === essentialProduct.product_url) isDuplicate = true;
+        if(premiumProduct && luxuryProduct.product_url === premiumProduct.product_url) isDuplicate = true;
 
-    // If we have very few products (e.g. only 1), and many candidates, try to pick up to 3 distinct if E/P/L failed
-    if (finalTieredProducts.length < 2 && suitableRawProducts.length > finalTieredProducts.length) {
-        const currentUrls = new Set(finalTieredProducts.map(fp => fp.link));
-        const fillCandidates = suitableRawProducts.filter(p => !currentUrls.has(addAffiliateTag(p.product_url)));
-        fillCandidates.sort((a,b) => (parseFloat(b.product_star_rating) || 0) - (parseFloat(a.product_star_rating) || 0));
-
-        const tierOrder: Array<'essential' | 'premium' | 'luxury'> = ['essential', 'premium', 'luxury'];
-        const currentTiers = new Set(finalTieredProducts.map(fp => fp.tier));
-        
-        for (const tier of tierOrder) {
-            if (finalTieredProducts.length >=3) break;
-            if (!currentTiers.has(tier)) {
-                const candidate = fillCandidates.shift();
-                if(candidate) {
-                    const reason = await getReasonForInclusion(candidate.product_title, baseKeywords, productType, openai);
-                    const formatted = formatProduct(candidate, tier, reason);
-                    if (formatted) {
-                        finalTieredProducts.push(formatted);
-                        currentTiers.add(tier);
-                    }
-                }
-            }
+        if(!isDuplicate){
+            const reason = await getReasonForInclusion(luxuryProduct.product_title, baseKeywords, productType, openai);
+            const formatted = formatProduct(luxuryProduct, 'luxury', reason);
+            if (formatted) finalTieredProducts.push(formatted);
         }
     }
     
-    // Ensure final products are sorted by tier (E, P, L) then by price for consistent display
     finalTieredProducts.sort((a,b) => {
         const tierRank = { essential: 1, premium: 2, luxury: 3 };
         if (tierRank[a.tier] !== tierRank[b.tier]) {
@@ -469,8 +447,6 @@ serve(async (req: Request) => {
         return parsePrice(a.price) - parsePrice(b.price);
     });
 
-    // If, after all this, we ended up with products not respecting E < P < L, this is a tough spot.
-    // For now, we assume the selection process tries its best. Forcing it rigidly might discard too many options.
 
     return new Response(JSON.stringify(finalTieredProducts), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

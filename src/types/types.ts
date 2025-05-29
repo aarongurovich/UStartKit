@@ -3,21 +3,26 @@ export interface Product {
   reasonForInclusion: string;
   link: string;
   image: string;
-  price: string;
+  price: string; 
   rating: number;
   reviews: number;
   tier: 'essential' | 'premium' | 'luxury';
 }
 
-// This interface matches the structure returned by the updated getEssentialProductTypes in api.ts
+export interface PriceRange {
+  min: number;
+  max: number;
+}
+
 export interface ProductTypeData { 
   productType: string;
   explanation: string;
+  priceRange: PriceRange;
 }
 
 export interface GroupedProduct {
   productTypeConcept: string;
-  explanation: string; // Added field
+  explanation: string; 
   tiers: {
     essential?: Product;
     premium?: Product;

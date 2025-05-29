@@ -1,4 +1,4 @@
-import { Product, LearningResource, GroupedProduct, ProductTypeData } from '../types/types';
+import { Product, LearningResource, GroupedProduct, ProductTypeData, PriceRange } from '../types/types';
 
 async function getEssentialProductTypes(activity: string): Promise<ProductTypeData[]> {
   try {
@@ -20,8 +20,8 @@ async function getEssentialProductTypes(activity: string): Promise<ProductTypeDa
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: `API call failed with status ${response.status}` }));
-      console.error("Error fetching product types/explanations, response not OK:", response.status, errorData);
-      throw new Error(errorData.error || `Failed to fetch product types/explanations: ${response.statusText}`);
+      console.error("Error fetching product types/explanations/ranges, response not OK:", response.status, errorData);
+      throw new Error(errorData.error || `Failed to fetch product types/explanations/ranges: ${response.statusText}`);
     }
 
     const productItemsFromAPI = await response.json(); 
@@ -29,29 +29,32 @@ async function getEssentialProductTypes(activity: string): Promise<ProductTypeDa
     if (!Array.isArray(productItemsFromAPI) || !productItemsFromAPI.every(
         (item: any) => typeof item === 'object' && item !== null && 
                 typeof item.product_type === 'string' && 
-                typeof item.explanation === 'string'
+                typeof item.explanation === 'string' &&
+                typeof item.price_range === 'object' && item.price_range !== null &&
+                typeof item.price_range.min === 'number' && typeof item.price_range.max === 'number'
     )) {
-        console.error("Product types/explanations response is not an array of {product_type, explanation} objects:", productItemsFromAPI);
-        throw new Error("Invalid format for product types/explanations received from API.");
+        console.error("Product types/explanations/ranges response is not an array of {product_type, explanation, price_range} objects:", productItemsFromAPI);
+        throw new Error("Invalid format for product types/explanations/ranges received from API.");
     }
     
     const productData: ProductTypeData[] = productItemsFromAPI.map((item: any) => ({
         productType: item.product_type,
         explanation: item.explanation,
+        priceRange: { min: item.price_range.min, max: item.price_range.max } as PriceRange,
     }));
 
     if (productData.length < 1 || productData.length > 8) {
-      console.warn(`API returned ${productData.length} product types for "${activity}", which is outside the typical range 1-8. Using them anyway.`);
+      console.warn(`API returned ${productData.length} product types for "${activity}". Using them anyway.`);
     }
 
     return productData.filter(pt => pt.productType.trim() !== '' && pt.explanation.trim() !== '');
 
   } catch (error: any) {
-    console.error(`Error getting essential product types/explanations for "${activity}" from Supabase function:`, error.message);
+    console.error(`Error getting essential product types/explanations/ranges for "${activity}" from Supabase function:`, error.message);
     if (error.message.includes("AI service might be unresponsive") || error.message.includes("AI response was not in the expected format")) {
         throw new Error(error.message);
     }
-    throw new Error(`Failed to identify essential product types/explanations for "${activity}". Original error: ${error.message}`);
+    throw new Error(`Failed to identify essential product types/explanations/ranges for "${activity}". Original error: ${error.message}`);
   }
 }
 
@@ -85,7 +88,8 @@ export async function searchAmazonProducts(activity: string): Promise<GroupedPro
           },
           body: JSON.stringify({
             baseKeywords: activity,
-            productType: detail.productType 
+            productType: detail.productType,
+            priceRange: detail.priceRange // Pass the priceRange
           })
         });
 
