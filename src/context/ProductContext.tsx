@@ -1,5 +1,5 @@
 import React, { createContext, useState, ReactNode } from 'react';
-import { Product, ProductContextType, LearningResource } from '../types/types';
+import { GroupedProduct, ProductContextType, LearningResource } from '../types/types';
 
 export const ProductContext = createContext<ProductContextType>({
   products: [],
@@ -10,9 +10,6 @@ export const ProductContext = createContext<ProductContextType>({
   setError: () => {},
   searchTerm: '',
   setSearchTerm: () => {},
-  selectedTier: 'essential',
-  setSelectedTier: () => {},
-
   learningResources: [],
   setLearningResources: () => {},
   isLearningResourcesLoading: false,
@@ -26,11 +23,10 @@ interface ProductProviderProps {
 }
 
 export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<GroupedProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTier, setSelectedTier] = useState<'essential' | 'premium' | 'luxury'>('essential');
 
   const [learningResources, setLearningResources] = useState<LearningResource[]>([]);
   const [isLearningResourcesLoading, setIsLearningResourcesLoading] = useState(false);
@@ -45,8 +41,6 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     setError,
     searchTerm,
     setSearchTerm,
-    selectedTier,
-    setSelectedTier,
     learningResources,
     setLearningResources,
     isLearningResourcesLoading,

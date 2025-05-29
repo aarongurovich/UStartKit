@@ -1,7 +1,7 @@
-import React, { useContext, useMemo, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Shield, Sparkles, Crown, BookOpen, Package, ExternalLink, AlertCircle, Image as ImageIcon, Youtube, Book } from 'lucide-react';
-import ProductCard from './ProductCard'; // Not used directly here, but mentioned for layout style
+import { ArrowLeft, BookOpen, Package, ExternalLink, AlertCircle, Image as ImageIcon, Youtube, Book, Shield, Sparkles, Crown } from 'lucide-react';
+import ProductCard from './ProductCard';
 import { ProductContext } from '../context/ProductContext';
 import Header from './Header';
 import { searchLearningResources } from '../services/api';
@@ -13,24 +13,17 @@ const ResultsPage: React.FC = () => {
     searchTerm,
     setProducts,
     setSearchTerm,
-    selectedTier,
-    setSelectedTier,
     learningResources,
     setLearningResources,
     isLearningResourcesLoading,
     setIsLearningResourcesLoading,
     learningResourcesError,
     setLearningResourcesError,
-    isLoading: isAmazonProductsLoading, // isLoading from context refers to Amazon products
+    isLoading: isAmazonProductsLoading,
   } = useContext(ProductContext);
 
   const [activeTab, setActiveTab] = useState<'starterProducts' | 'learningResources'>('starterProducts');
 
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => p.tier === selectedTier);
-  }, [products, selectedTier]);
-
-  // useEffect to fetch learning resources automatically after Amazon products are loaded
   useEffect(() => {
     if (!isAmazonProductsLoading && products.length > 0 && searchTerm && learningResources.length === 0 && !learningResourcesError && !isLearningResourcesLoading) {
       const fetchResources = async () => {
@@ -60,7 +53,6 @@ const ResultsPage: React.FC = () => {
     setLearningResourcesError,
   ]);
 
-  // useEffect to fetch learning resources when the tab is clicked (if not already loaded/loading)
   useEffect(() => {
     if (activeTab === 'learningResources' && searchTerm && learningResources.length === 0 && !learningResourcesError && !isLearningResourcesLoading) {
       const fetchResources = async () => {
@@ -87,14 +79,7 @@ const ResultsPage: React.FC = () => {
     setLearningResources([]);
     setLearningResourcesError('');
     setActiveTab('starterProducts');
-    setSelectedTier('essential'); // Reset tier selection
   };
-
-  const productTiers = [
-    { id: 'essential', name: 'Essential', icon: Shield, description: 'Budget-friendly basics' },
-    { id: 'premium', name: 'Premium', icon: Sparkles, description: 'Mid-range quality' },
-    { id: 'luxury', name: 'Luxury', icon: Crown, description: 'High-end options' }
-  ] as const;
 
   const tabButtonClasses = (tabName: 'starterProducts' | 'learningResources') =>
     `py-3 px-4 sm:px-6 rounded-t-lg font-medium transition-colors flex items-center gap-2 text-sm sm:text-base ${
@@ -195,32 +180,39 @@ const ResultsPage: React.FC = () => {
           </div>
 
           {activeTab === 'starterProducts' && (
-            <motion.div className="space-y-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                {productTiers.map(({ id, name, icon: Icon, description }) => (
-                  <button
-                    key={id}
-                    onClick={() => setSelectedTier(id as typeof selectedTier)}
-                    className={`flex flex-col items-center justify-start p-3 sm:p-6 rounded-xl border transition-all h-full ${
-                      selectedTier === id
-                        ? 'bg-indigo-500/20 border-indigo-500/50 text-white'
-                        : 'bg-gray-900/50 border-gray-800/50 text-gray-400 hover:bg-gray-900/70 hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 sm:w-6 sm:h-6 mb-1 sm:mb-2" />
-                    <span className="font-medium text-sm sm:text-lg text-center">{name}</span>
-                    <span className="text-xs text-center text-gray-400 hidden sm:block">{description}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-                {filteredProducts.map((product, index) => (
-                  <ProductCard key={product.link} product={product} index={index} />
-                ))}
-              </div>
-
-              <p className="text-xs text-gray-500 mt-8">
+            <motion.div className="space-y-12" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+              {products.slice(0, 5).map((groupedProduct, groupIndex) => (
+                <div key={groupIndex} className="bg-gray-900/30 p-4 sm:p-6 rounded-xl border border-gray-800/40">
+                  <h3 className="text-xl sm:text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 mb-1">
+                    {groupedProduct.productTypeConcept}
+                  </h3>
+                  <p className="text-gray-400 text-sm mb-4 sm:mb-6">{groupedProduct.explanation}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                    {groupedProduct.tiers.essential ? (
+                      <ProductCard product={groupedProduct.tiers.essential} index={groupIndex * 3 + 0} />
+                    ) : (
+                      <div className="border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 min-h-[200px] md:min-h-0 text-center">Essential version not found</div>
+                    )}
+                    {groupedProduct.tiers.premium ? (
+                      <ProductCard product={groupedProduct.tiers.premium} index={groupIndex * 3 + 1} />
+                    ) : (
+                      <div className="border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 min-h-[200px] md:min-h-0 text-center">Premium version not found</div>
+                    )}
+                    {groupedProduct.tiers.luxury ? (
+                      <ProductCard product={groupedProduct.tiers.luxury} index={groupIndex * 3 + 2} />
+                    ) : (
+                      <div className="border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 min-h-[200px] md:min-h-0 text-center">Luxury version not found</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {products.length === 0 && !isAmazonProductsLoading && (
+                 <div className="text-center py-10 text-gray-400">
+                    <p className="text-xl">No product categories found for "{searchTerm}".</p>
+                    <p>Try refining your search.</p>
+                 </div>
+              )}
+              <p className="text-xs text-gray-500 mt-8 text-center">
                 As an Amazon Associate I earn from qualifying purchases.
               </p>
             </motion.div>
@@ -257,10 +249,8 @@ const ResultsPage: React.FC = () => {
                     <p className="text-red-300/80 mb-4 text-sm">{learningResourcesError}</p>
                     <button
                         onClick={() => {
-                            // Clear existing resources and error to allow re-fetch
                             setLearningResources([]);
                             setLearningResourcesError('');
-                            // Manually trigger fetch, similar to tab click logic
                              const fetchResources = async () => {
                                 setIsLearningResourcesLoading(true);
                                 try {
@@ -283,7 +273,7 @@ const ResultsPage: React.FC = () => {
               )}
 
               {!isLearningResourcesLoading && !learningResourcesError && learningResources.length === 0 && (
-                <p className="text-gray-500 text-center py-10 text-lg">No learning resources found for "{searchTerm}". Try another search!</p>
+                <p className="text-gray-500 text-center py-10 text-lg">No learning resources found for "{searchTerm}".</p>
               )}
 
               {!isLearningResourcesLoading && !learningResourcesError && learningResources.length > 0 && (
