@@ -181,7 +181,7 @@ const ResultsPage: React.FC = () => {
 
           {activeTab === 'starterProducts' && (
             <motion.div className="space-y-12" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              {products.slice(0, 5).map((groupedProduct, groupIndex) => (
+              {products.slice(0, 8).map((groupedProduct, groupIndex) => (
                 <div key={groupIndex} className="bg-gray-900/30 p-4 sm:p-6 rounded-xl border border-gray-800/40">
                   <h3 className="text-xl sm:text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 mb-1">
                     {groupedProduct.productTypeConcept}

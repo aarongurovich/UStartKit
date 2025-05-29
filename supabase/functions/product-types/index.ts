@@ -16,14 +16,16 @@ For each product type:
 
 **EXAMPLE OF REQUIRED COMPLETENESS:**
 - User: "Gaming Starter Kit"
-  Ideal Response Object: {"product_items": [
-      {"product_type": "Gaming PC", "explanation": "The core system for playing games, processing graphics, and running game software.", "price_range": {"min": 700, "max": 1500}},
-      {"product_type": "Gaming Monitor", "explanation": "Displays the game visuals; refresh rate and response time are key for a good experience.", "price_range": {"min": 150, "max": 400}},
-      {"product_type": "Gaming Keyboard", "explanation": "Primary input device for game controls and communication.", "price_range": {"min": 30, "max": 150}},
-      {"product_type": "Gaming Mouse", "explanation": "Essential for precise aiming and interaction in many games.", "price_range": {"min": 20, "max": 80}},
-      {"product_type": "Gaming Headset", "explanation": "Provides immersive audio and microphone for team communication.", "price_range": {"min": 30, "max": 120}},
-      {"product_type": "Gaming Chair", "explanation": "Offers ergonomic support for comfort during long gaming sessions.", "price_range": {"min": 100, "max": 300}},
-  ]}
+Ideal Response Object: {"product_items": [
+    {"product_type": "Gaming PC", "explanation": "The core system for playing games, processing graphics, and running game software.", "price_range": {"min": 700, "max": 1500}},
+    {"product_type": "Gaming Monitor", "explanation": "Displays the game visuals; refresh rate and response time are key for a good experience.", "price_range": {"min": 150, "max": 400}},
+    {"product_type": "Gaming Keyboard", "explanation": "Primary input device for game controls and communication.", "price_range": {"min": 30, "max": 150}},
+    {"product_type": "Gaming Mouse", "explanation": "Essential for precise aiming and interaction in many games.", "price_range": {"min": 20, "max": 80}},
+    {"product_type": "Gaming Headset", "explanation": "Provides immersive audio and microphone for team communication.", "price_range": {"min": 30, "max": 120}},
+    {"product_type": "Gaming Chair", "explanation": "Offers ergonomic support for comfort during long gaming sessions.", "price_range": {"min": 100, "max": 300}},
+    {"product_type": "Gaming Desk", "explanation": "Provides a stable and spacious surface for all gaming peripherals.", "price_range": {"min": 80, "max": 250}},
+    {"product_type": "Gaming Mousepad", "explanation": "Provides a smooth and consistent surface for optimal mouse tracking and performance.", "price_range": {"min": 10, "max": 40}}
+]}
 This example illustrates that if any of these items were missing, the user could not fully start their gaming activity as envisioned by a comprehensive starter kit. Apply this level of "literally everything you need" thinking to all requests.
 
 CRITICAL RULES FOR DISTINCT PRODUCT TYPES:
