@@ -33,9 +33,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, index }) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-        <a href={product.link} target="_blank" rel="noopener noreferrer sponsored" className="absolute inset-0 z-30">
-            <span className="sr-only">View product</span>
-        </a>
+      <a href={product.link} target="_blank" rel="noopener noreferrer sponsored" className="absolute inset-0 z-30">
+          <span className="sr-only">View product</span>
+      </a>
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 to-purple-500/0 group-hover:from-indigo-500/10 group-hover:to-purple-500/10 transition-all duration-300" />
 
       <div className={`absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-500/80 backdrop-blur-sm text-white text-xs font-medium transform transition-all duration-300 ${isHovered ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}>

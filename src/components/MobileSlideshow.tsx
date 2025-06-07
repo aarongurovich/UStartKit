@@ -53,7 +53,7 @@ const MobileSlideshow: React.FC<MobileSlideshowProps> = ({ products }) => {
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
             key={page}
-            className="absolute"
+            className="absolute w-full h-full flex items-center justify-center"
             custom={direction}
             variants={variants}
             initial="enter"
