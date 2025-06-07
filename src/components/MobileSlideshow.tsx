@@ -3,28 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Product } from '../types/types';
 import ProductCard from './ProductCard';
 
+// The animation variants remain the same.
 const variants = {
-  enter: (direction: number) => {
-    return {
-      x: direction > 0 ? 300 : -300,
-      opacity: 0,
-    };
-  },
+  enter: (direction: number) => ({
+    x: direction > 0 ? 300 : -300,
+    opacity: 0,
+  }),
   center: {
     zIndex: 1,
     x: 0,
     opacity: 1,
   },
-  exit: (direction: number) => {
-    return {
-      zIndex: 0,
-      x: direction < 0 ? 300 : -300,
-      opacity: 0,
-    };
-  },
+  exit: (direction: number) => ({
+    zIndex: 0,
+    x: direction < 0 ? 300 : -300,
+    opacity: 0,
+  }),
 };
 
-const swipeConfidenceThreshold = 10000;
+// A lower threshold makes the swipe more sensitive.
+const swipeConfidenceThreshold = 2000;
 const swipePower = (offset: number, velocity: number) => {
   return Math.abs(offset) * velocity;
 };
@@ -36,6 +34,7 @@ interface MobileSlideshowProps {
 const MobileSlideshow: React.FC<MobileSlideshowProps> = ({ products }) => {
   const [[page, direction], setPage] = useState([0, 0]);
 
+  // Ensures the index is always within the bounds of the products array.
   const productIndex = (page % products.length + products.length) % products.length;
 
   const paginate = (newDirection: number) => {
@@ -59,13 +58,15 @@ const MobileSlideshow: React.FC<MobileSlideshowProps> = ({ products }) => {
             initial="enter"
             animate="center"
             exit="exit"
+            // A stiffer spring with lower damping feels more responsive.
             transition={{
-              x: { type: "spring", stiffness: 300, damping: 30 },
-              opacity: { duration: 0.2 },
+              x: { type: "spring", stiffness: 320, damping: 35 },
+              opacity: { duration: 0.25 },
             }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={1}
+            // A lower dragElastic value makes the drag feel tighter.
+            dragElastic={0.2}
             onDragEnd={(e, { offset, velocity }) => {
               const swipe = swipePower(offset.x, velocity.x);
 
