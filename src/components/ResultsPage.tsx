@@ -1,11 +1,12 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BookOpen, Package, ExternalLink, AlertCircle, Image as ImageIcon, Youtube, Book, Shield, Sparkles, Crown } from 'lucide-react';
+import { ArrowLeft, BookOpen, Package, ExternalLink, AlertCircle, Image as ImageIcon, Youtube, Book, Shield, Sparkles } from 'lucide-react';
 import ProductCard from './ProductCard';
 import { ProductContext } from '../context/ProductContext';
 import Header from './Header';
 import { searchLearningResources } from '../services/api';
-import { LearningResource } from '../types/types';
+import { LearningResource, Product } from '../types/types';
+import MobileSlideshow from './MobileSlideshow';
 
 const ResultsPage: React.FC = () => {
   const {
@@ -23,6 +24,14 @@ const ResultsPage: React.FC = () => {
   } = useContext(ProductContext);
 
   const [activeTab, setActiveTab] = useState<'starterProducts' | 'learningResources'>('starterProducts');
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (!isAmazonProductsLoading && products.length > 0 && searchTerm && learningResources.length === 0 && !learningResourcesError && !isLearningResourcesLoading) {
@@ -88,6 +97,9 @@ const ResultsPage: React.FC = () => {
         : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
     }`;
 
+    const startOverButtonClasses = "flex items-center justify-center gap-2 px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg";
+
+
   const renderResourceTypeIcon = (type: LearningResource['type']) => {
     switch (type) {
       case 'Book': return <Book className="w-5 h-5 text-yellow-400 flex-shrink-0" />;
@@ -137,7 +149,6 @@ const ResultsPage: React.FC = () => {
     </motion.a>
   );
 
-
   return (
     <>
       <Header />
@@ -154,12 +165,12 @@ const ResultsPage: React.FC = () => {
                 Your {searchTerm} Starter Kit
               </h2>
               <p className="text-gray-400">
-                {activeTab === 'starterProducts' ? "Click any product to view it on Amazon" : "Explore resources to help you get started"}
+                {activeTab === 'starterProducts' ? "All product tiers for each category" : "Explore resources to help you get started"}
               </p>
             </div>
             <button
               onClick={handleStartOver}
-              className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              className={startOverButtonClasses}
             >
               <ArrowLeft className="w-4 h-4" />
               Start Over
@@ -180,39 +191,48 @@ const ResultsPage: React.FC = () => {
           </div>
 
           {activeTab === 'starterProducts' && (
-            <motion.div className="space-y-12" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              {products.slice(0, 8).map((groupedProduct, groupIndex) => (
-                <div key={groupIndex} className="bg-gray-900/30 p-4 sm:p-6 rounded-xl border border-gray-800/40">
-                  <h3 className="text-xl sm:text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 mb-1">
-                    {groupedProduct.productTypeConcept}
-                  </h3>
-                  <p className="text-gray-400 text-sm mb-4 sm:mb-6">{groupedProduct.explanation}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                    {groupedProduct.tiers.essential ? (
-                      <ProductCard product={groupedProduct.tiers.essential} index={groupIndex * 3 + 0} />
+             <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+              {products.slice(0, 8).map((groupedProduct, groupIndex) => {
+                const tiers = [groupedProduct.tiers.essential, groupedProduct.tiers.premium, groupedProduct.tiers.luxury].filter(Boolean) as Product[];
+
+                return (
+                  <div key={groupIndex} className="p-4 sm:p-6 border-b border-gray-800/50 last:border-b-0">
+                    <h3 className="text-xl sm:text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 mb-1 text-center">
+                      {groupedProduct.productTypeConcept}
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-4 text-center">{groupedProduct.explanation}</p>
+
+                    {isMobile ? (
+                      tiers.length > 0 ? (
+                        <MobileSlideshow products={tiers} />
+                      ) : (
+                        <div className="w-full h-[380px] border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 text-center">
+                          No product versions found
+                        </div>
+                      )
                     ) : (
-                      <div className="border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 min-h-[200px] md:min-h-0 text-center">Essential version not found</div>
-                    )}
-                    {groupedProduct.tiers.premium ? (
-                      <ProductCard product={groupedProduct.tiers.premium} index={groupIndex * 3 + 1} />
-                    ) : (
-                      <div className="border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 min-h-[200px] md:min-h-0 text-center">Premium version not found</div>
-                    )}
-                    {groupedProduct.tiers.luxury ? (
-                      <ProductCard product={groupedProduct.tiers.luxury} index={groupIndex * 3 + 2} />
-                    ) : (
-                      <div className="border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 min-h-[200px] md:min-h-0 text-center">Luxury version not found</div>
+                      <div className="mt-6 mb-8 flex items-start justify-center flex-wrap gap-6">
+                        {tiers.length > 0 ? (
+                          tiers.map((product, tierIndex) => (
+                            <ProductCard key={tierIndex} product={product} index={groupIndex * 3 + tierIndex} />
+                          ))
+                        ) : (
+                          <div className="w-full h-[380px] border border-dashed border-gray-700 rounded-lg p-4 flex items-center justify-center text-gray-500 text-center">
+                            No product versions found for this category.
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
               {products.length === 0 && !isAmazonProductsLoading && (
                  <div className="text-center py-10 text-gray-400">
                     <p className="text-xl">No product categories found for "{searchTerm}".</p>
                     <p>Try refining your search.</p>
                  </div>
               )}
-              <p className="text-xs text-gray-500 mt-8 text-center">
+               <p className="text-xs text-gray-500 mt-8 text-center">
                 As an Amazon Associate I earn from qualifying purchases.
               </p>
             </motion.div>
@@ -225,16 +245,6 @@ const ResultsPage: React.FC = () => {
               transition={{ delay: 0.1 }}
               className="bg-gray-900/50 backdrop-blur-sm border border-gray-800/50 rounded-xl p-6"
             >
-              <div className="flex items-start gap-4 mb-6">
-                <BookOpen className="w-8 h-8 text-indigo-400 flex-shrink-0 mt-1" />
-                <div>
-                  <h3 className="text-2xl font-semibold text-indigo-300 mb-1">Learning Resources & Educational Content</h3>
-                  <p className="text-gray-400">
-                    A curated list of resources to help you dive deeper into {searchTerm}.
-                  </p>
-                </div>
-              </div>
-
               {isLearningResourcesLoading && (
                 <div className="flex justify-center items-center py-10">
                   <div className="w-16 h-16 rounded-full border-4 border-gray-700 border-t-indigo-500 animate-spin"></div>
@@ -283,6 +293,17 @@ const ResultsPage: React.FC = () => {
               )}
             </motion.div>
           )}
+
+            {/* */}
+            <div className="mt-12 mb-8 flex justify-center">
+                <button
+                onClick={handleStartOver}
+                className={startOverButtonClasses}
+                >
+                <ArrowLeft className="w-5 h-5" />
+                Start Over
+                </button>
+            </div>
         </motion.div>
       </main>
     </>
