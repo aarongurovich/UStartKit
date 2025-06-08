@@ -1,4 +1,4 @@
-import { Product, LearningResource, GroupedProduct, ProductTypeData, AdvancedOptions } from '../types/types';
+import { Product, GroupedProduct, ProductTypeData, AdvancedOptions } from '../types/types';
 
 async function getEssentialProductTypes(activity: string, advancedOptions?: AdvancedOptions): Promise<ProductTypeData[]> {
   try {
@@ -143,47 +143,6 @@ export async function searchAmazonProducts(activity: string, advancedOptions?: A
       throw error; 
     }
     throw new Error(`Unable to build the starter kit for "${activity}". ${error.message.startsWith('Unable to build') ? '' : 'Details: '}${error.message}`);
-  }
-}
-
-export async function searchLearningResources(activity: string): Promise<LearningResource[]> {
-  if (!activity || activity.trim() === "") {
-    console.warn("searchLearningResources called with empty activity string.");
-    return [];
-  }
-  try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error("Supabase URL or Anon Key is not configured in environment variables for learning resources.");
-    }
-
-    const response = await fetch(`${supabaseUrl}/functions/v1/get-learning-resources`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`
-      },
-      body: JSON.stringify({ activity: activity })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: `API call failed with status ${response.status}` }));
-      console.error("Error fetching learning resources, response not OK:", response.status, errorData);
-      throw new Error(errorData.error || `Failed to fetch learning resources: ${response.statusText}`);
-    }
-
-    const resources: LearningResource[] = await response.json();
-    if (!Array.isArray(resources)) {
-        console.error("Learning resources response is not an array:", resources);
-        throw new Error("Invalid format for learning resources received from API.");
-    }
-    return resources;
-
-  } catch (error: any) {
-    console.error(`Error fetching learning resources for activity "${activity}":`, error.message);
-    throw new Error(`Unable to fetch learning resources for "${activity}". ${error.message.startsWith('Unable to fetch') ? '' : 'Details: '}${error.message}`);
   }
 }
 

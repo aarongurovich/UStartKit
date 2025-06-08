@@ -1,5 +1,5 @@
 import React, { createContext, useState, ReactNode } from 'react';
-import { GroupedProduct, ProductContextType, LearningResource } from '../types/types';
+import { GroupedProduct, ProductContextType } from '../types/types';
 
 export const ProductContext = createContext<ProductContextType>({
   products: [],
@@ -10,12 +10,6 @@ export const ProductContext = createContext<ProductContextType>({
   setError: () => {},
   searchTerm: '',
   setSearchTerm: () => {},
-  learningResources: [],
-  setLearningResources: () => {},
-  isLearningResourcesLoading: false,
-  setIsLearningResourcesLoading: () => {},
-  learningResourcesError: '',
-  setLearningResourcesError: () => {},
   
   // Advanced Search State
   age: '',
@@ -40,10 +34,6 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [learningResources, setLearningResources] = useState<LearningResource[]>([]);
-  const [isLearningResourcesLoading, setIsLearningResourcesLoading] = useState(false);
-  const [learningResourcesError, setLearningResourcesError] = useState('');
-
   // State for advanced options is now managed here
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
@@ -60,12 +50,6 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     setError,
     searchTerm,
     setSearchTerm,
-    learningResources,
-    setLearningResources,
-    isLearningResourcesLoading,
-    setIsLearningResourcesLoading,
-    learningResourcesError,
-    setLearningResourcesError,
     age, setAge,
     gender, setGender,
     level, setLevel,

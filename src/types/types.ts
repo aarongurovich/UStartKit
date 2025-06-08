@@ -25,15 +25,6 @@ export interface GroupedProduct {
   };
 }
 
-export interface LearningResource {
-  title: string;
-  link: string;
-  type: 'Book' | 'Online Course' | 'YouTube' | 'Community' | 'Website/Blog' | 'Other';
-  description: string;
-  source?: string;
-  image: string;
-}
-
 export interface AdvancedOptions {
   age?: string;
   gender?: string;
@@ -51,13 +42,6 @@ export interface ProductContextType {
   setError: React.Dispatch<React.SetStateAction<string>>;
   searchTerm: string;
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
-
-  learningResources: LearningResource[];
-  setLearningResources: React.Dispatch<React.SetStateAction<LearningResource[]>>;
-  isLearningResourcesLoading: boolean;
-  setIsLearningResourcesLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  learningResourcesError: string;
-  setLearningResourcesError: React.Dispatch<React.SetStateAction<string>>;
 
   // Advanced Search State
   age: string;
