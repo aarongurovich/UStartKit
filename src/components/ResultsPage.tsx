@@ -88,6 +88,7 @@ const ResultsPage: React.FC = () => {
     setLearningResources([]);
     setLearningResourcesError('');
     setActiveTab('starterProducts');
+    // Note: We no longer clear advanced options here, as their state lives in the context.
   };
 
   const tabButtonClasses = (tabName: 'starterProducts' | 'learningResources') =>

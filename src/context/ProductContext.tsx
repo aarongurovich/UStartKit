@@ -16,6 +16,18 @@ export const ProductContext = createContext<ProductContextType>({
   setIsLearningResourcesLoading: () => {},
   learningResourcesError: '',
   setLearningResourcesError: () => {},
+  
+  // Advanced Search State
+  age: '',
+  setAge: () => {},
+  gender: '',
+  setGender: () => {},
+  level: 'Beginner',
+  setLevel: () => {},
+  mustHaves: '',
+  setMustHaves: () => {},
+  other: '',
+  setOther: () => {},
 });
 
 interface ProductProviderProps {
@@ -32,6 +44,13 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
   const [isLearningResourcesLoading, setIsLearningResourcesLoading] = useState(false);
   const [learningResourcesError, setLearningResourcesError] = useState('');
 
+  // State for advanced options is now managed here
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [level, setLevel] = useState('Beginner');
+  const [mustHaves, setMustHaves] = useState('');
+  const [other, setOther] = useState('');
+
   const value = {
     products,
     setProducts,
@@ -47,6 +66,11 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     setIsLearningResourcesLoading,
     learningResourcesError,
     setLearningResourcesError,
+    age, setAge,
+    gender, setGender,
+    level, setLevel,
+    mustHaves, setMustHaves,
+    other, setOther
   };
 
   return (

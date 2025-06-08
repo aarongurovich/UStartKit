@@ -9,15 +9,10 @@ export interface Product {
   tier: 'essential' | 'premium' | 'luxury';
 }
 
-export interface PriceRange {
-  min: number;
-  max: number;
-}
-
 export interface ProductTypeData { 
   productType: string;
   explanation: string;
-  priceRange: PriceRange;
+  startingPrice: number;
 }
 
 export interface GroupedProduct {
@@ -39,6 +34,14 @@ export interface LearningResource {
   image: string;
 }
 
+export interface AdvancedOptions {
+  age?: string;
+  gender?: string;
+  level?: 'Beginner' | 'Amateur' | 'Advanced' | string;
+  mustHaves?: string;
+  other?: string;
+}
+
 export interface ProductContextType {
   products: GroupedProduct[];
   setProducts: React.Dispatch<React.SetStateAction<GroupedProduct[]>>;
@@ -55,4 +58,16 @@ export interface ProductContextType {
   setIsLearningResourcesLoading: React.Dispatch<React.SetStateAction<boolean>>;
   learningResourcesError: string;
   setLearningResourcesError: React.Dispatch<React.SetStateAction<string>>;
+
+  // Advanced Search State
+  age: string;
+  setAge: React.Dispatch<React.SetStateAction<string>>;
+  gender: string;
+  setGender: React.Dispatch<React.SetStateAction<string>>;
+  level: string;
+  setLevel: React.Dispatch<React.SetStateAction<string>>;
+  mustHaves: string;
+  setMustHaves: React.Dispatch<React.SetStateAction<string>>;
+  other: string;
+  setOther: React.Dispatch<React.SetStateAction<string>>;
 }
