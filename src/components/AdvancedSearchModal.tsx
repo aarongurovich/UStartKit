@@ -8,7 +8,7 @@ interface AdvancedSearchModalProps {
   onClose: () => void;
 }
 
-const MAX_TEXTAREA_HEIGHT = 100;
+const MAX_TEXTAREA_HEIGHT = 80; // Reduced height
 const MAX_SEARCH_CHARACTERS = 50;
 
 
@@ -44,10 +44,10 @@ const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({ isOpen, onClo
   };
 
 
-  const inputBaseStyles = "w-full bg-gray-800/80 backdrop-blur-sm text-white placeholder-gray-500 border border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all text-sm sm:text-base";
-  const inputStyles = `${inputBaseStyles} px-3 py-2 sm:px-4 sm:py-2.5`;
-  const selectStyles = `${inputBaseStyles} appearance-none pr-8 sm:pr-10 pl-3 sm:pl-4 py-2 sm:py-2.5`;
-  const labelStyles = "block text-sm font-medium text-gray-300 mb-1.5";
+  const inputBaseStyles = "w-full bg-gray-800/80 backdrop-blur-sm text-white placeholder-gray-500 border border-gray-600/50 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all text-sm";
+  const inputStyles = `${inputBaseStyles} px-3 py-1.5 sm:py-2`;
+  const selectStyles = `${inputBaseStyles} appearance-none pr-8 pl-3 py-1.5 sm:py-2`;
+  const labelStyles = "block text-xs sm:text-sm font-medium text-gray-300 mb-1";
 
   return (
     <AnimatePresence>
@@ -64,19 +64,19 @@ const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({ isOpen, onClo
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
             transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-            className="bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl w-full max-w-2xl p-4 sm:p-6 md:p-8 relative mt-12 sm:mt-0"
+            className="bg-gray-900 border border-gray-700/50 rounded-xl shadow-2xl w-full max-w-lg p-4 sm:p-5 relative mt-8 sm:mt-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-10">
-              <X className="h-6 w-6" />
+            <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors z-10">
+              <X className="h-5 w-5" />
             </button>
             
-            <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                <SlidersHorizontal className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-400"/>
-                <h2 className="text-xl sm:text-2xl font-bold text-white">Advanced Search</h2>
+            <div className="flex items-center gap-2 mb-4">
+                <SlidersHorizontal className="h-5 w-5 text-indigo-400"/>
+                <h2 className="text-lg sm:text-xl font-bold text-white">Advanced Search</h2>
             </div>
             
-            <div className="space-y-4 md:space-y-5">
+            <div className="space-y-3 sm:space-y-4">
               <div>
                 <label htmlFor="main-search" className={labelStyles}>Starter Kit For:</label>
                 <textarea
@@ -85,22 +85,22 @@ const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({ isOpen, onClo
                   value={searchTerm}
                   onChange={handleSearchTermChange}
                   rows={1}
-                  placeholder="What starter kit are you looking for?"
+                  placeholder="What are you looking for?"
                   maxLength={MAX_SEARCH_CHARACTERS}
                   className={
                     "w-full min-w-0 resize-none " +
                     "overflow-hidden " +
-                    "py-2 px-3 sm:py-3 sm:px-4 " +
-                    "text-sm sm:text-base " +
+                    "py-2 px-3 " +
+                    "text-sm " +
                     "bg-gray-800/80 text-white placeholder-gray-500 " +
-                    "border border-gray-600/50 rounded-lg shadow-sm backdrop-blur-sm " +
+                    "border border-gray-600/50 rounded-md shadow-sm backdrop-blur-sm " +
                     "focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent " +
                     "transition-all"
                   }
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4 md:gap-x-6 md:gap-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3">
                 <div>
                   <label htmlFor="age" className={labelStyles}>Age</label>
                   <input type="number" id="age" value={age} onChange={e => setAge(e.target.value)} className={inputStyles} placeholder="e.g., 25" />
@@ -115,7 +115,7 @@ const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({ isOpen, onClo
                       <option value="Female">Female</option>
                       <option value="Other">Other</option>
                     </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 sm:px-3 text-gray-400">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
                       <ChevronDown className="h-4 w-4" />
                     </div>
                   </div>
@@ -129,32 +129,32 @@ const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({ isOpen, onClo
                       <option value="Amateur">Amateur</option>
                       <option value="Advanced">Advanced</option>
                     </select>
-                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 sm:px-3 text-gray-400">
+                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
                       <ChevronDown className="h-4 w-4" />
                     </div>
                   </div>
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="sm:col-span-3">
                   <label htmlFor="must-haves" className={labelStyles}>Products that MUST be included</label>
                   <textarea id="must-haves" value={mustHaves} onChange={e => setMustHaves(e.target.value)} rows={2} className={inputStyles} placeholder="e.g., A mechanical keyboard..."></textarea>
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="sm:col-span-3">
                   <label htmlFor="other" className={labelStyles}>Other notes or preferences</label>
                   <textarea id="other" value={other} onChange={e => setOther(e.target.value)} rows={2} className={inputStyles} placeholder="e.g., I prefer sustainable products..."></textarea>
                 </div>
               </div>
               
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-end pt-1">
                   <button
                     type="submit"
                     form="search-form"
-                    className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold px-4 py-2 sm:px-6 sm:py-2.5 rounded-lg hover:shadow-lg hover:shadow-indigo-500/20 hover:scale-105 transform transition-all duration-200 flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold px-4 py-2 rounded-lg hover:shadow-lg hover:shadow-indigo-500/20 hover:scale-105 transform transition-all duration-200 flex items-center justify-center gap-2 text-sm"
                     aria-label="Search with advanced options"
                     onClick={onClose}
                   >
-                    <Search className="h-5 w-5" />
+                    <Search className="h-4 w-4" />
                     <span>Search</span>
                   </button>
               </div>
