@@ -112,7 +112,6 @@ const AdvancedSearchModal: React.FC<AdvancedSearchModalProps> = ({ isOpen, onClo
                     <option value="">Any</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                    <option value="Other">Other</option>
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 top-10 flex items-center px-3 text-gray-400">
                     <ChevronDown className="h-4 w-4" />
