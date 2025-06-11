@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+supabase/.gitignore
+.vscode/extensions.json
+.gitignore
+supabase/.temp/cli-latest
+supabase/config.toml
